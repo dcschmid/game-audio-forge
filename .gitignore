@@ -1,0 +1,101 @@
+# --- Build artifacts ---
+build/
+build-*/
+cmake-build-*/
+out/
+dist/
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+.ninja_deps
+.ninja_log
+.ninja_state
+
+# --- Third-party / vendored (fetched at build time, never committed) ---
+third_party/
+external/
+deps/
+vendor/
+
+# --- Model weights & large audio assets (NEVER commit) ---
+models/
+*.gguf
+*.ggml
+*.safetensors
+*.ckpt
+*.bin
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.wav
+*.flac
+*.mp3
+*.ogg
+*.m4a
+*.aiff
+*.opus
+*.mid
+*.midi
+
+# --- Generated / runtime data ---
+data/
+cache/
+tmp/
+*.tmp
+*.log
+*.pid
+
+# --- Python (reference tooling only, no runtime dependency) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node (Soundbox reference / MCP tooling) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Local secrets / machine-specific config (NEVER commit) ---
+*.local.toml
+*.local.json
+.env
+.env.*
+secrets/
+credentials*
+*.pem
+*.key
+id_ed25519*
+id_rsa*
+
+# --- Keep these dirs tracked even when empty ---
+!config/.gitkeep
+!presets/.gitkeep
+!examples/.gitkeep
+!tests/.gitkeep
+!scripts/.gitkeep
+!docs/.gitkeep
+!src/.gitkeep

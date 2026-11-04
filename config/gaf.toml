@@ -1,0 +1,118 @@
+# Game Audio Forge — default configuration
+#
+# This file is the *shipped default*. Users copy it to their XDG config
+# location and edit it there; machine-specific overrides live in a
+# `*.local.toml` file (gitignored) that is merged on top of this one.
+#
+# Path resolution order (first match wins):
+#   1. Explicit key in this file
+#   2. Environment variable (GAF_* / XDG_*)
+#   3. XDG base-directory default
+#
+# See docs/DATA-LAYOUT.md for the full directory contract.
+
+[app]
+name = "game-audio-forge"
+version = "0.1.0"
+# Human-readable data root. Resolved to the XDG data home by default.
+data_dir = "auto"          # "auto" | absolute path
+config_dir = "auto"        # "auto" | absolute path
+cache_dir = "auto"         # "auto" | absolute path
+
+[paths]
+# Relative to data_dir unless absolute.
+models = "models"          # GGUF / safetensors weights (downloaded, never committed)
+libraries = "libraries"    # sound + music libraries (generated + imported)
+projects = "projects"      # project profiles
+presets = "presets"        # user presets (shipped presets live in repo /presets)
+cache = "cache"            # temp inference data (in cache_dir by default)
+
+[engine]
+# Inference foundation. audio.cpp is the native C++/ggml runtime.
+name = "audio.cpp"
+# Backend preference, in order. First available wins.
+backends = ["cuda", "vulkan", "rocm", "cpu"]
+# audio.cpp composite model set to build/enable (see audio.cpp docs).
+model_set = "custom"
+models = [
+  "ace_step",          # ACE-Step 1.5 — instrumental music
+  "midashenglm_gen",   # MiDashengLM-Gen — sound effects / ambience
+  "stable_audio",      # Stable Audio 3.0 — SFX + music
+  "controlfoley",      # ControlFoley — foley SFX
+]
+# Optional: run audio.cpp as a local server instead of in-process.
+server = { enabled = false, host = "127.0.0.1", port = 17495 }
+
+[models]
+# Registry of models Game Audio Forge knows about. Weights are downloaded
+# on demand into paths.models via the audio.cpp model manager. No weights
+# are ever committed to this repository.
+[models.ace_step_1_5]
+family = "ace_step"
+task = "music"
+license = "MIT"
+commercial = true
+default = true
+# GGUF package id (resolved by the audio.cpp model manager).
+package = "ace_step_1_5_turbo"
+
+[models.midashenglm_gen]
+family = "midashenglm_gen"
+task = "sfx"
+license = "Apache-2.0"
+commercial = true
+default = true
+package = "midashenglm_gen"
+
+[models.stable_audio_3_sfx]
+family = "stable_audio"
+task = "sfx"
+license = "Stability AI Community"
+commercial = "conditional"   # under $1M revenue
+default = true
+package = "stable_audio_3_small_sfx"
+
+[models.stable_audio_3_music]
+family = "stable_audio"
+task = "music"
+license = "Stability AI Community"
+commercial = "conditional"
+default = false
+package = "stable_audio_3_small_music"
+
+[models.controlfoley]
+family = "controlfoley"
+task = "sfx"
+license = "TBD"
+commercial = "unknown"
+default = false
+package = "controlfoley"
+
+[models.minimax_music3]
+family = "minimax_music3"
+task = "music"
+license = "MiniMax-Music3 Community"
+commercial = "conditional"
+default = false
+# ~10 GB VRAM — does not fit the 8 GB dev target; off by default.
+package = "minimax_music3"
+
+[profiles]
+# Independent project profiles. Each is a self-contained library + settings
+# set, e.g. one per game or client. Shipped examples live in /examples.
+default = "default"
+
+[export]
+# Engine-agnostic export targets. Defold is the first profile.
+default_format = "wav"
+default_sample_rate = 48000
+default_bit_depth = 16
+targets = ["defold"]
+
+[processing]
+# Post-processing / mastering. FFmpeg is the system dependency (LGPL,
+# dynamically linked).
+ffmpeg = "ffmpeg"
+denoise = false
+normalize = true
+loudness_target_lufs = -16.0

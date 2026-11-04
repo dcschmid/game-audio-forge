@@ -1,0 +1,16 @@
+# Example SFX preset — reusable generation recipe.
+#
+# A preset is a saved prompt + model + parameters. It is metadata only; the
+# generated audio is written to the profile library at generation time.
+#
+# Shipped presets live in /presets. User presets live in the XDG data dir.
+
+name = "door-slam"
+kind = "sfx"
+model = "midashenglm_gen"        # model family (see config/gaf.toml [models])
+prompt = "heavy wooden door slamming shut in a stone corridor, single hit, dry"
+duration_s = 2.0
+seed = 0                          # 0 = random
+tags = ["door", "slam", "indoor", "impact"]
+# Post-processing applied after generation (see config [processing]).
+post = { normalize = true, denoise = false }
