@@ -151,8 +151,7 @@ Full contract in [DATA-LAYOUT.md](DATA-LAYOUT.md).
   - Unit tests (C++): library, profiles, presets, export mapping, config
     resolution. No GPU required.
   - Integration tests: generation round-trip (skipped when no GPU / no model).
-  - CI (GitHub Actions): lint + unit tests on CPU; GPU jobs are opt-in
-    (self-hosted or a GPU runner) for M2 benchmarks.
+  - Run locally via `ctest`. No GitHub Actions CI is configured (by design).
 - **No Python in the build.** Python is optional reference tooling only.
 
 ## Hardware target

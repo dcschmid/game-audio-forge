@@ -16,8 +16,8 @@ dependency strategy, license concept, documentation.
   [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md))
 - [x] Data layout contract ([docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md))
 - [x] Default configuration ([config/gaf.toml](config/gaf.toml))
-- [x] CI (lint + secret scan + unit-test skeleton)
 - [x] Milestones + tracking issues on GitHub
+- [x] No GitHub Actions CI (by design — tests run locally)
 
 **Definition of done:** the repository builds a clear mental model; no models
 installed, no UI, no secrets committed; a contributor can read the docs and

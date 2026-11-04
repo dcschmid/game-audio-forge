@@ -17,7 +17,8 @@ project; the rules below keep it that way.
   WAV/FLAC masters and temp data live in the XDG data directory, not in git.
   The `.gitignore` enforces this — do not weaken it.
 - **No secrets.** Never commit tokens, credentials, machine-specific paths or
-  local config. CI runs a secret scan.
+  local config. The `.gitignore` blocks common secret files; review diffs
+  before pushing.
 - **Local-first, private by default.** No telemetry, no accounts, no
   phone-home. Network access is limited to explicit model downloads.
 
@@ -43,10 +44,11 @@ ctest --test-dir build
 
 ## Testing
 
-- Unit tests (no GPU) must pass in CI.
+- Unit tests (no GPU) must pass locally (`ctest --test-dir build`).
 - Integration tests that need a GPU or a downloaded model must be skippable
   and clearly marked.
 - Add a regression test for any bug fix.
+- No GitHub Actions CI is configured; tests run locally.
 
 ## Pull requests
 

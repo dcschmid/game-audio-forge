@@ -62,7 +62,6 @@ game-audio-forge/
 ├── scripts/        # build, model-download, benchmark, export helpers
 ├── tests/          # unit + integration tests
 ├── docs/           # architecture, data layout, dependency & license notes
-├── .github/        # CI workflows
 ├── README.md
 ├── ARCHITECTURE.md
 ├── ROADMAP.md

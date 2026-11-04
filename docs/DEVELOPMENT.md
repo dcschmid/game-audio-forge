@@ -88,20 +88,13 @@ The license for each model is shown before download and recorded per take.
 ## Testing
 
 - **Unit tests** (no GPU): config resolution, library, profiles, presets,
-  export mapping. Must pass in CI.
+  export mapping. Run locally via `ctest --test-dir build`.
 - **Integration tests** (GPU + model): generation round-trip. Skipped when no
   GPU or no model is present; clearly marked.
 - **Benchmarks** (M2): RTF and peak VRAM on the RTX 5070 Laptop for each model
   and quantization.
 
-## CI
-
-GitHub Actions (`.github/workflows/ci.yml`):
-
-- Lint (config + code style).
-- Secret scan (gitleaks) — fail on tokens/credentials/paths.
-- Unit tests on CPU (no GPU in the default runner).
-- GPU jobs are opt-in (self-hosted or a GPU runner) for M2 benchmarks.
+No GitHub Actions CI is configured (by design). Tests and checks run locally.
 
 ## Do / Don't
 

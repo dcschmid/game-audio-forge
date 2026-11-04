@@ -1,14 +1,15 @@
 # Status — Milestone 1 (Foundation)
 
 **Date:** 2026-11-04
-**State:** M1 complete locally. Remote push pending GitHub auth.
+**State:** M1 complete. Pushed to a private GitHub repo; milestones + tracking
+issues created. No GitHub Actions CI (by design).
 
 ## What is in place
 
-- Local git repo at `~/dev/github/game-audio-forge`, branch `main`, one
-  SSH-signed commit.
+- Local git repo at `~/dev/github/game-audio-forge`, branch `main`, pushed to
+  `dcschmid/game-audio-forge` (private). Commits are SSH-signed.
 - Full directory scaffold: `src/ config/ scripts/ tests/ docs/ presets/
-  examples/ .github/workflows/`.
+  examples/`.
 - Core docs: `README.md`, `ARCHITECTURE.md`, `ROADMAP.md`,
   `CONTRIBUTING.md`, `CHANGELOG.md`.
 - `docs/`: `DATA-LAYOUT.md` (XDG contract), `DEPENDENCIES.md` (license
@@ -18,10 +19,9 @@
 - Example presets (`presets/sfx/door-slam.toml`,
   `presets/music/cave-ambience-loop.toml`) and example profile
   (`examples/profiles/demo.toml`).
-- CI (`.github/workflows/ci.yml`): config validation, secret scan (gitleaks),
-  repo hygiene (no weights/audio/home-paths), test skeleton.
 - `.gitignore` + `.editorconfig`.
 - `LICENSE` — Apache License 2.0 (project license decided 2026-11-04).
+- **No GitHub Actions CI** — tests and checks run locally (by design).
 
 ## Key architectural decision
 
@@ -49,24 +49,14 @@ dependency (LGPL, dynamic link).
 
 ## GitHub state
 
-- `gh` CLI is **not authenticated** (no `hosts.yml`, no token, no netrc).
-- Per the task condition, the private remote repo was **not** created and the
-  commit was **not** pushed.
-- `origin` is pre-set to `git@github.com:dcschmid/game-audio-forge.git`.
-- Local hygiene verified: no model weights, no audio, no home paths tracked;
-  commit is SSH-signed.
+- Private repo `dcschmid/game-audio-forge` created and pushed (branch `main`).
+- Description set; visibility **private**.
+- Milestones M1–M5 created; tracking issues #1–#5 (one per milestone) plus
+  concrete M2 sub-issues #6–#9. M1 tracking issue (#1) is closed.
+- Hygiene verified: no model weights, no audio, no home paths tracked; commits
+  are SSH-signed.
 
 ## Recommended next steps
-
-**Immediate (unblock GitHub):**
-1. Authenticate: `gh auth login` (or set `GH_TOKEN`).
-2. Create the private repo and push:
-   ```bash
-   gh repo create dcschmid/game-audio-forge --private \
-     --description "Local-first, C++-powered AI audio production toolkit for game sound effects, instrumental music, sound libraries and engine-ready exports."
-   git push -u origin main
-   ```
-3. Create milestones M1–M5 and the tracking issues (see `ROADMAP.md`).
 
 **Milestone 2 — Audio Engines (the real work):**
 1. Build audio.cpp with CUDA + composite model set
