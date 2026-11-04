@@ -80,7 +80,6 @@ yarn-error.log*
 Thumbs.db
 
 # --- Local secrets / machine-specific config (NEVER commit) ---
-*.local.toml
 *.local.json
 .env
 .env.*
@@ -99,3 +98,6 @@ id_rsa*
 !scripts/.gitkeep
 !docs/.gitkeep
 !src/.gitkeep
+
+# --- Local engine tooling (prebuilt audio.cpp + CUDA runtime, never committed) ---
+.tools/

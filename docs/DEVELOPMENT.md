@@ -15,60 +15,69 @@ development and benchmarking target is CUDA on the RTX 5070 Laptop.
 
 | Tool | Version | Notes |
 |---|---|---|
-| GCC | 13+ | C++20 |
-| CMake | 3.25+ | build system |
+| GCC | 13+ | C++20 (our layer) |
+| CMake | 3.25+ | build system (our layer) |
 | Ninja | any | generator |
-| CUDA Toolkit | 12.x | for the CUDA backend |
 | FFmpeg | 6.x | system package (`dnf install ffmpeg`), LGPL |
 | git | 2.x | |
+| NVIDIA driver | 615+ | for the CUDA backend (the engine binary bundles the CUDA runtime) |
 
 Install on Fedora:
 
 ```bash
 sudo dnf install gcc gcc-c++ cmake ninja-build ffmpeg git
-# CUDA Toolkit: see NVIDIA's Fedora instructions, or use the system cuda package
 ```
 
-## Build
+> **No CUDA toolkit is required.** The audio.cpp engine is used as a prebuilt
+> CUDA binary (it bundles `libcublas`/`libcudart`), so only the NVIDIA *driver*
+> is needed. A from-source build of audio.cpp (for a C-ABI integration) would
+> need the CUDA toolkit — see [ARCHITECTURE.md](ARCHITECTURE.md) for the
+> integration decision.
 
-> The CMake build is added in **Milestone 2** when the first C++ source lands.
-> Until then the repository is configuration + documentation and there is
-> nothing to compile. The commands below are the intended workflow.
+## The audio.cpp engine (runtime dependency)
+
+The engine is a prebuilt binary, kept in `.tools/` (gitignored — never
+committed). It runs as a local HTTP server that our CLI talks to.
 
 ```bash
-# Configure (CUDA backend, composite model set)
-cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -GNinja \
-  -DAUDIOCPP_BACKEND=cuda
+# 1. Download the prebuilt CUDA binary + CUDA runtime (one-time, ~1 GB)
+cd .tools
+gh release download v0.9.3 -R 0xShug0/audio.cpp \
+  --pattern "audio-v0.9.3-bin-ubuntu-x64-cuda12.8-colab.tar.gz" --dir .
+gh release download v0.9.3 -R 0xShug0/audio.cpp \
+  --pattern "audio-v0.9.3-cudart-ubuntu-x64-cuda12.8.tar.gz" --dir .
+tar xzf audio-v0.9.3-bin-ubuntu-x64-cuda12.8-colab.tar.gz
+tar xzf audio-v0.9.3-cudart-ubuntu-x64-cuda12.8.tar.gz
 
-# Build
+# 2. Start the server (CUDA backend, model management on)
+#    libnccl.so.2 is needed at load; point LD_LIBRARY_PATH at it (e.g. from a
+#    local nvidia-nccl install) plus the bundled CUDA libs.
+LD_LIBRARY_PATH=.:/path/to/nvidia/nccl/lib \
+  ./audiocpp_server --config ./server.json --ui-management --no-ui \
+  --model-spec-override ./model_specs
+```
+
+`server.json` registers the installed models (see the M2 setup). The server
+listens on `127.0.0.1:17495`.
+
+## Build our layer (the `gaf` CLI)
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -GNinja
 cmake --build build -j
-
-# Run tests
 ctest --test-dir build --output-on-failure
 ```
 
-### Backend selection
-
-- Build-time: `-DAUDIOCPP_BACKEND=cuda|vulkan|rocm|cpu`.
-- Runtime: the `engine.backends` preference list in `config/gaf.toml` chooses
-  the first available backend at startup.
-
-### Composite model set
-
-Only the model families we use are built, keeping the binary small:
-
-```
--DAUDIOCPP_MODEL_SET=custom
--DAUDIOCPP_MODELS=ace_step,midashenglm_gen,stable_audio,controlfoley
-```
+The only third-party C++ dependency is `nlohmann/json`, fetched at configure
+time (FetchContent) — not committed. The engine is a runtime dependency
+(reached over HTTP), not a link dependency.
 
 ## Configuration
 
-- Shipped default: [`config/gaf.toml`](../config/gaf.toml).
-- User config: copy it to `~/.config/game-audio-forge/gaf.toml` and edit.
-- Machine-specific overrides: `~/.config/game-audio-forge/gaf.local.toml`
+- Shipped default: [`config/gaf.json`](../config/gaf.json).
+- Seed the user config: `gaf config init` (copies the shipped default to
+  `~/.config/game-audio-forge/gaf.json`).
+- Machine-specific overrides: `~/.config/game-audio-forge/gaf.local.json`
   (gitignored).
 
 See [DATA-LAYOUT.md](DATA-LAYOUT.md) for the full path-resolution contract.
@@ -76,23 +85,40 @@ See [DATA-LAYOUT.md](DATA-LAYOUT.md) for the full path-resolution contract.
 ## Models
 
 Model weights are **not** in the repository. They are downloaded on demand into
-the XDG data directory via the audio.cpp model manager:
+the XDG data directory (`~/.local/share/game-audio-forge/models`) via the
+engine's model-management endpoint:
 
 ```bash
-# (M2) example — download the default ACE-Step 1.5 package
-gaf model install ace_step_1_5_turbo
+# Install a package (e.g. the default ACE-Step 1.5 Turbo Q8_0)
+curl -X POST http://127.0.0.1:17495/v1/ui/models/install \
+  -H 'Content-Type: application/json' -d '{"id":"ace_step_turbo_q8_0"}'
+curl -X POST http://127.0.0.1:17495/v1/ui/models/install \
+  -H 'Content-Type: application/json' -d '{"id":"midashenglm_gen_q8_0"}'
 ```
 
-The license for each model is shown before download and recorded per take.
+The license for each model is recorded per take. See [BENCHMARKS.md](BENCHMARKS.md)
+for what fits the 8 GB budget.
+
+## Using the CLI
+
+```bash
+gaf config show                 # resolved config + paths
+gaf models list                 # models registered with the engine
+gaf generate midashenglm_gen --text "door slam" --duration 3 --seed 42
+gaf generate ace_step --text "dark ambient loop" --duration 24 --seed 7
+gaf library list --profile default
+scripts/gaf-benchmark.sh ace_step "dark ambient loop" 24 7
+```
 
 ## Testing
 
-- **Unit tests** (no GPU): config resolution, library, profiles, presets,
-  export mapping. Run locally via `ctest --test-dir build`.
-- **Integration tests** (GPU + model): generation round-trip. Skipped when no
-  GPU or no model is present; clearly marked.
-- **Benchmarks** (M2): RTF and peak VRAM on the RTX 5070 Laptop for each model
-  and quantization.
+- **Unit tests** (no GPU): config resolution (XDG paths, JSON parse) and the
+  library (add/find, round-trip, empty). Run locally via
+  `ctest --test-dir build`.
+- **Integration** (GPU + model): generation is exercised manually via the CLI
+  and `scripts/gaf-benchmark.sh`; an automated round-trip test is an M3 item.
+- **Benchmarks**: RTF and peak VRAM on the RTX 5070 Laptop — see
+  [BENCHMARKS.md](BENCHMARKS.md).
 
 No GitHub Actions CI is configured (by design). Tests and checks run locally.
 

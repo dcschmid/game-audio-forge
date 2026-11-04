@@ -3,9 +3,10 @@
 Local-first, C++-powered AI audio production toolkit for game sound effects,
 instrumental music, sound libraries and engine-ready exports.
 
-> **Status:** Milestone 1 — Foundation. The repository, architecture,
-> dependency strategy and data layout are in place. No models are installed
-> and no UI is implemented yet. See [ROADMAP.md](ROADMAP.md).
+> **Status:** Milestone 2 — Audio Engines. The C++ layer (`gaf` CLI) builds
+> and runs; ACE-Step 1.5 (music) and MiDashengLM-Gen (SFX) generate locally on
+> CUDA, benchmarked on an 8 GB RTX 5070 Laptop. No UI yet. See
+> [ROADMAP.md](ROADMAP.md) and [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## What it is
 
@@ -55,13 +56,16 @@ and build our own native layer. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```
 game-audio-forge/
-├── src/            # our C++ code (thin layer over audio.cpp)
-├── config/         # shipped default configuration (gaf.toml)
+├── src/            # our C++ code (thin layer over the audio.cpp engine)
+│   ├── gaf/        #   core library: config, http client, library
+│   └── gaf_cli.cpp #   the `gaf` CLI
+├── config/         # shipped default configuration (gaf.json)
 ├── presets/        # reusable prompt & generation presets
 ├── examples/       # example project profiles & metadata
-├── scripts/        # build, model-download, benchmark, export helpers
-├── tests/          # unit + integration tests
-├── docs/           # architecture, data layout, dependency & license notes
+├── scripts/        # benchmark + helper scripts
+├── tests/          # unit tests
+├── docs/           # architecture, data layout, dependencies, benchmarks
+├── CMakeLists.txt  # builds the `gaf` CLI + tests
 ├── README.md
 ├── ARCHITECTURE.md
 ├── ROADMAP.md
@@ -71,28 +75,29 @@ game-audio-forge/
 
 Large assets — model weights, GGUF files, sound libraries, generated audio,
 WAV/FLAC masters, temp inference data — live **outside** the repository in an
-XDG-compatible data directory. See [docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md).
+XDG-compatible data directory. The prebuilt engine binary lives in `.tools/`
+(gitignored). See [docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md).
 
 ## Getting started
 
-Milestone 1 ships configuration and documentation only. To build the C++ layer
-you will need (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)):
+The `gaf` CLI is a thin client over the audio.cpp engine (a local HTTP server).
+Full setup is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md); in short:
 
-- Fedora 44 (or any recent Linux), GCC 13+, CMake, Ninja
-- NVIDIA CUDA Toolkit (for the preferred backend)
-- FFmpeg (system package, LGPL)
+- Fedora 44 (or any recent Linux), GCC 13+, CMake, Ninja, FFmpeg
+- NVIDIA driver (the engine binary bundles the CUDA runtime — no toolkit needed)
 
 ```bash
-# 1. Configure
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAUDIOCPP_BACKEND=cuda
-# 2. Build
+# 1. Set up the engine (prebuilt CUDA binary + server) — see DEVELOPMENT.md
+# 2. Build our layer
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -GNinja
 cmake --build build -j
-# 3. Test
-ctest --test-dir build
-```
+ctest --test-dir build --output-on-failure
 
-> The CMake build is added in Milestone 2 once the first C++ source lands.
-> Until then the repository is configuration + documentation.
+# 3. Use it
+./build/gaf config init
+./build/gaf generate midashenglm_gen --text "door slam" --duration 3 --seed 42
+./build/gaf generate ace_step --text "dark ambient loop" --duration 24 --seed 7
+```
 
 ## Data & privacy
 
@@ -112,10 +117,11 @@ weights keep their own licenses and are not redistributed by this project. See
 
 ## Roadmap
 
-- **M1 — Foundation** (this commit): repo, architecture, dev environment,
-  dependency strategy, license concept, docs.
-- **M2 — Audio Engines**: evaluate audio.cpp, test ACE-Step + SFX models over
-  C++, GPU benchmarks, local model management.
+- **M1 — Foundation** ✅: repo, architecture, dev environment, dependency
+  strategy, license (Apache-2.0), docs.
+- **M2 — Audio Engines** ✅: audio.cpp engine (server), ACE-Step 1.5 +
+  MiDashengLM-Gen generate on CUDA, GPU benchmarks, model management, `gaf`
+  CLI + CMake + unit tests.
 - **M3 — Audio Workspace**: project profiles, sound library, prompt management,
   presets, generation + QC.
 - **M4 — Processing & Export**: analysis, mastering basics, loops, variants,

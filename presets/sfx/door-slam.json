@@ -1,0 +1,10 @@
+{
+  "name": "door-slam",
+  "kind": "sfx",
+  "model": "midashenglm_gen",
+  "prompt": "heavy wooden door slamming shut in a stone corridor, single hit, dry",
+  "duration_s": 2.0,
+  "seed": 0,
+  "tags": ["door", "slam", "indoor", "impact"],
+  "post": { "normalize": true, "denoise": false }
+}

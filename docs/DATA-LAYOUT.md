@@ -8,7 +8,7 @@ temp inference data — lives in an XDG-compatible directory tree.
 ## What stays in the repo
 
 - Source code (`src/`), build files, scripts, tests.
-- Shipped default configuration (`config/gaf.toml`).
+- Shipped default configuration (`config/gaf.json`).
 - Shipped presets (`presets/`) and example profiles/metadata (`examples/`).
 - Documentation (`docs/`, `*.md`).
 
@@ -27,7 +27,7 @@ The `.gitignore` enforces this. Do not weaken it.
 
 Paths resolve in this order (first match wins):
 
-1. An explicit absolute path in `config/gaf.toml` (`[paths]` / `[app]`).
+1. An explicit absolute path in `config/gaf.json` (top-level keys).
 2. The relevant environment variable.
 3. The XDG base-directory default.
 
@@ -56,8 +56,8 @@ $XDG_DATA_HOME/game-audio-forge/
 └── cache/                   # temp inference data (scratch)
 
 $XDG_CONFIG_HOME/game-audio-forge/
-├── gaf.toml                 # user config (copy of repo default + overrides)
-└── gaf.local.toml           # machine-specific overrides (gitignored)
+├── gaf.json                 # user config (copy of repo default + overrides)
+└── gaf.local.json           # machine-specific overrides (gitignored)
 
 $XDG_CACHE_HOME/game-audio-forge/
 └── downloads/               # model download cache (partial files, etc.)

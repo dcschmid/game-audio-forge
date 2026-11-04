@@ -54,18 +54,26 @@ pieces fit together.
 
 ### 1. Inference foundation — audio.cpp
 
-- **Role:** all model inference. We link against audio.cpp (C ABI or its
-  server API) rather than forking it.
-- **Integration options (decided in M2):**
-  - *In-process (C ABI):* link the audio.cpp shared library; lowest latency,
-    single process. Preferred for the CLI and MCP server.
-  - *Server:* run audio.cpp as a local HTTP server; our layer talks to it.
-    Useful for isolation and for a future UI.
-- **Model set:** built as a *composite* set containing only the families we
-  use (`ace_step`, `midashenglm_gen`, `stable_audio`, `controlfoley`), keeping
-  the binary small.
-- **Backends:** selected at build time (`-DAUDIOCPP_BACKEND=cuda`) and/or at
-  runtime via the `engine.backends` preference list in `config/gaf.toml`.
+- **Role:** all model inference. We do not fork or copy audio.cpp's source.
+- **Integration (decided in M2): server.** audio.cpp runs as a local HTTP
+  server (`audiocpp_server`); our C++ layer is a thin client over its
+  `/v1/tasks/run`, `/v1/models`, and model-management endpoints. Rationale:
+  - The prebuilt CUDA binary runs on the target hardware without installing the
+    CUDA toolkit (no `sudo` needed), which a from-source C-ABI build would
+    require.
+  - Process isolation: a model OOM/crash does not take down the CLI.
+  - The same server serves a future UI and the MCP layer (M5) unchanged.
+  - *In-process (C ABI)* remains the option for lower latency once a CUDA
+    toolkit is available for a from-source build; the client interface is the
+    same either way.
+- **Model set:** only the families we use are registered
+  (`ace_step`, `midashenglm_gen`, + `stable_audio`/`controlfoley` later),
+  keeping the working set small.
+- **Backends:** selected at server start (`--backend cuda`) and/or via the
+  `engine.backends` preference list in `config/gaf.json`.
+- **8 GB VRAM budget:** `max_loaded_models: 1` (one model resident at a time)
+  and `mem_saver: true` for ACE-Step (releases staged state between phases)
+  so the DiT + planner + VAE fit. See `docs/BENCHMARKS.md`.
 
 ### 2. Product layer — our C++ code (`src/`)
 
@@ -132,8 +140,8 @@ $XDG_DATA_HOME/game-audio-forge/        (default: ~/.local/share/game-audio-forg
 └── cache/         # temp inference data
 
 $XDG_CONFIG_HOME/game-audio-forge/      (default: ~/.config/game-audio-forge)
-└── gaf.toml       # user config (copy of config/gaf.toml + overrides)
-                   # gaf.local.toml     # machine-specific, gitignored
+└── gaf.json       # user config (copy of config/gaf.json + overrides)
+                   # gaf.local.json     # machine-specific, gitignored
 
 $XDG_CACHE_HOME/game-audio-forge/       (default: ~/.cache/game-audio-forge)
 └── ...            # scratch, model download cache

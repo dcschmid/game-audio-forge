@@ -1,9 +1,10 @@
 # Roadmap
 
 Milestones are ordered by dependency. Each lists its deliverables and a
-definition of done. The current milestone is **M1 — Foundation**.
+definition of done. M1 and M2 are complete; the next milestone is
+**M3 — Audio Workspace**.
 
-## M1 — Foundation ✅ (this commit)
+## M1 — Foundation ✅
 
 Goal: a solid, reviewable base — repo, architecture, dev environment,
 dependency strategy, license concept, documentation.
@@ -15,7 +16,7 @@ dependency strategy, license concept, documentation.
 - [x] License concept + decision: **Apache-2.0** ([LICENSE](LICENSE),
   [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md))
 - [x] Data layout contract ([docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md))
-- [x] Default configuration ([config/gaf.toml](config/gaf.toml))
+- [x] Default configuration ([config/gaf.json](config/gaf.json))
 - [x] Milestones + tracking issues on GitHub
 - [x] No GitHub Actions CI (by design — tests run locally)
 
@@ -23,20 +24,23 @@ dependency strategy, license concept, documentation.
 installed, no UI, no secrets committed; a contributor can read the docs and
 understand the plan.
 
-## M2 — Audio Engines
+## M2 — Audio Engines ✅
 
 Goal: prove the inference foundation on the target hardware.
 
-- [ ] Evaluate audio.cpp: build with CUDA, composite model set
-- [ ] Test ACE-Step 1.5 (music) over C++ (in-process C ABI)
-- [ ] Test MiDashengLM-Gen (SFX) over C++
-- [ ] GPU benchmarks on RTX 5070 Laptop (8 GB): RTF, peak VRAM, quantization
-- [ ] Local model management: registry + on-demand download + license display
-- [ ] First C++ source in `src/` + CMake build + unit tests
-- [ ] Decide in-process vs server integration
+- [x] Evaluate audio.cpp: run the prebuilt CUDA engine (server integration)
+- [x] Test ACE-Step 1.5 (music) — generates locally on CUDA
+- [x] Test MiDashengLM-Gen (SFX) — generates locally on CUDA
+- [x] GPU benchmarks on RTX 5070 Laptop (8 GB): RTF + peak VRAM
+  ([docs/BENCHMARKS.md](docs/BENCHMARKS.md))
+- [x] Local model management: registry + on-demand download (engine endpoint)
+- [x] First C++ source in `src/` + CMake build + unit tests (7 passing)
+- [x] Integration decision: **server** (not in-process C ABI) — see
+  [ARCHITECTURE.md](ARCHITECTURE.md)
 
 **Definition of done:** a CLI command generates a music take and an SFX take
 locally on CUDA, with measured VRAM/RTF, and models are managed from config.
+**Met** — `gaf generate` produces both; benchmarks recorded.
 
 ## M3 — Audio Workspace
 

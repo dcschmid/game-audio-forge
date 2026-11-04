@@ -1,0 +1,11 @@
+{
+  "name": "cave-ambience-loop",
+  "kind": "music",
+  "model": "ace_step",
+  "prompt": "dark ambient cave drone, low rumble, sparse atmospheric pads, seamless loop",
+  "duration_s": 24.0,
+  "seed": 0,
+  "tags": ["ambient", "cave", "loop", "background"],
+  "loop": { "enabled": true, "crossfade_s": 1.0 },
+  "post": { "normalize": true, "denoise": false, "loudness_target_lufs": -18.0 }
+}

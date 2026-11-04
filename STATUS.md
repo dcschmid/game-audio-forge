@@ -1,73 +1,63 @@
-# Status — Milestone 1 (Foundation)
+# Status — Milestone 2 (Audio Engines)
 
 **Date:** 2026-11-04
-**State:** M1 complete. Pushed to a private GitHub repo; milestones + tracking
-issues created. No GitHub Actions CI (by design).
+**State:** M2 complete. The `gaf` CLI builds and runs; ACE-Step 1.5 (music)
+and MiDashengLM-Gen (SFX) generate locally on CUDA, benchmarked on an 8 GB
+RTX 5070 Laptop.
 
 ## What is in place
 
-- Local git repo at `~/dev/github/game-audio-forge`, branch `main`, pushed to
-  `dcschmid/game-audio-forge` (private). Commits are SSH-signed.
-- Full directory scaffold: `src/ config/ scripts/ tests/ docs/ presets/
-  examples/`.
-- Core docs: `README.md`, `ARCHITECTURE.md`, `ROADMAP.md`,
-  `CONTRIBUTING.md`, `CHANGELOG.md`.
-- `docs/`: `DATA-LAYOUT.md` (XDG contract), `DEPENDENCIES.md` (license
-  inventory + integration decision), `DEVELOPMENT.md`.
-- `config/gaf.toml` — shipped default config (engine, backends, model
-  registry, profiles, export, processing).
-- Example presets (`presets/sfx/door-slam.toml`,
-  `presets/music/cave-ambience-loop.toml`) and example profile
-  (`examples/profiles/demo.toml`).
-- `.gitignore` + `.editorconfig`.
-- `LICENSE` — Apache License 2.0 (project license decided 2026-11-04).
-- **No GitHub Actions CI** — tests and checks run locally (by design).
+- **C++ layer** (`src/`): `gaf` CLI + core library (config, HTTP client,
+  library). CMake build (C++20, Ninja). Only third-party dep is `nlohmann/json`
+  (FetchContent, not committed).
+- **Engine integration: server.** audio.cpp v0.9.3 runs as a local HTTP server
+  (prebuilt CUDA 12.8 binary in `.tools/`, gitignored). Our CLI is a thin
+  client over `/v1/tasks/run`, `/v1/models`, and model-management endpoints.
+  No CUDA toolkit needed (the binary bundles the CUDA runtime).
+- **Models installed** (XDG data dir, not in the repo):
+  - ACE-Step 1.5 Turbo Q8_0 (6.19 GB) — music
+  - MiDashengLM-Gen Q8_0 (3.38 GB) — SFX
+- **CLI surface:** `gaf config init|show`, `gaf models list|status`,
+  `gaf generate <model> --text … --duration N --seed N`, `gaf library list`.
+- **Benchmarks** ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)):
+  - MiDashengLM-Gen: 20 s SFX, RTF 0.24, peak VRAM 3805 MiB
+  - ACE-Step 1.5: 205 s music, RTF 0.13, peak VRAM 6947 MiB (needs `mem_saver`)
+- **Unit tests:** 7 passing (config XDG/JSON, library add/find/round-trip).
+- **Config:** `config/gaf.json` (JSON, not TOML) — engine, backends, model
+  registry, profiles, export, processing.
 
-## Key architectural decision
+## Key decisions
 
-**audio.cpp (Apache-2.0, C++/ggml) is the inference foundation.** It natively
-wraps every model this project targets — ACE-Step 1.5 (music),
-MiDashengLM-Gen (SFX), Stable Audio 3.0 (SFX+Music), ControlFoley (SFX),
-MiniMax Music 3 — so one engine covers both the music and SFX paths. Game
-Audio Forge is a thin native C++ layer over it (library, profiles, presets,
-QC, export, MCP).
+- **Server, not in-process C ABI.** The prebuilt CUDA binary runs without
+  installing the CUDA toolkit (no `sudo`), gives process isolation, and serves
+  a future UI + MCP unchanged. In-process remains an option once a CUDA
+  toolkit is available.
+- **8 GB VRAM budget:** `max_loaded_models: 1` (one model resident) +
+  `mem_saver: true` for ACE-Step. Both default models fit at Q8_0; MiniMax
+  Music 3 (~10 GB) does not.
+- **Config format is JSON** (matches the C++ reader); presets/profiles are JSON
+  too. (M1 shipped TOML; converted in M2.)
 
-**Soundbox (MIT) is a product-shape reference, not a dependency** — it is a
-Node/Electron app, not a C++ library. We borrow its ideas (profiles,
-license-before-download, MCP surface) and build our own native layer.
+## Known limitations / M3+ work
 
-**ACE-Step-1.5 / MiDashengLM-Gen** Python repos are reference-only; we use
-their GGUF weights (runtime download), not their code. **FFmpeg** is a system
-dependency (LGPL, dynamic link).
+- **Duration is a budget, not a cap.** ACE-Step's planner chose 205 s for a 24 s
+  request; MiDashengLM-Gen produced 20 s for a 3 s request. Exact-length loop
+  trimming is an M4 (Processing) task.
+- **No automated generation test** yet (manual + benchmark script). An
+  integration round-trip test is an M3 item.
+- **Stable Audio 3.0 / ControlFoley** not yet benchmarked (next models to add).
+- **License display** is recorded per take but not yet shown *before* download
+  in the CLI (the engine shows it in its WebUI).
 
-## Open decisions (need user input)
+## Open decisions
 
-1. **In-process vs server** integration with audio.cpp — to be decided in M2
-   after a build test.
-2. **Open-source publication** — deferred until the dependency/model-weight
-   review is complete. (Project license is set: **Apache-2.0**.)
+1. **Open-source publication** — deferred until the dependency/model-weight
+   review is complete. (Project license is set: Apache-2.0.)
 
-## GitHub state
+## Next: Milestone 3 — Audio Workspace
 
-- Private repo `dcschmid/game-audio-forge` created and pushed (branch `main`).
-- Description set; visibility **private**.
-- Milestones M1–M5 created; tracking issues #1–#5 (one per milestone) plus
-  concrete M2 sub-issues #6–#9. M1 tracking issue (#1) is closed.
-- Hygiene verified: no model weights, no audio, no home paths tracked; commits
-  are SSH-signed.
-
-## Recommended next steps
-
-**Milestone 2 — Audio Engines (the real work):**
-1. Build audio.cpp with CUDA + composite model set
-   (`ace_step,midashenglm_gen,stable_audio,controlfoley`).
-2. Add the first C++ source in `src/` + `CMakeLists.txt` (FetchContent for
-   audio.cpp, system FFmpeg).
-3. Generate one music take (ACE-Step 1.5) and one SFX take (MiDashengLM-Gen)
-   over the C ABI; measure RTF + peak VRAM on the RTX 5070 Laptop (8 GB).
-4. Implement the model registry + on-demand download + license display.
-5. Decide in-process vs server integration.
-
-**Before M2:** the project license is set (Apache-2.0). The remaining
-pre-M2 item is the dependency/model-weight review that gates open-source
-publication.
+- Project profiles (independent libraries, shared model cache)
+- Central sound & music library (the JSON library is the start; consider SQLite)
+- Prompt management (save, tag, reuse) + presets wired into `gaf generate`
+- Generation orchestration + quality control
+- Automated generation round-trip test
