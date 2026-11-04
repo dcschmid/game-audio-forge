@@ -1,5 +1,6 @@
 #include "gaf/library.h"
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -58,6 +59,12 @@ nlohmann::json Library::to_json(const Take& t) {
         {"license", t.license},
         {"tags", t.tags},
         {"created_at", t.created_at},
+        {"peak", t.peak},
+        {"rms", t.rms},
+        {"loudness_lufs", t.loudness_lufs},
+        {"silence_head_s", t.silence_head_s},
+        {"silence_tail_s", t.silence_tail_s},
+        {"qc_ok", t.qc_ok},
     };
 }
 
@@ -76,6 +83,12 @@ Take Library::from_json(const nlohmann::json& j) {
     if (j.contains("license")) t.license = j.at("license").get<std::string>();
     if (j.contains("tags")) t.tags = j.at("tags").get<std::vector<std::string>>();
     if (j.contains("created_at")) t.created_at = j.at("created_at").get<std::string>();
+    if (j.contains("peak")) t.peak = j.at("peak").get<double>();
+    if (j.contains("rms")) t.rms = j.at("rms").get<double>();
+    if (j.contains("loudness_lufs")) t.loudness_lufs = j.at("loudness_lufs").get<double>();
+    if (j.contains("silence_head_s")) t.silence_head_s = j.at("silence_head_s").get<double>();
+    if (j.contains("silence_tail_s")) t.silence_tail_s = j.at("silence_tail_s").get<double>();
+    if (j.contains("qc_ok")) t.qc_ok = j.at("qc_ok").get<bool>();
     return t;
 }
 
@@ -114,6 +127,17 @@ std::string Library::add(const Take& take_in, std::string& err) {
     takes_.push_back(t);
     if (!save(err)) return "";
     return t.id;
+}
+
+bool Library::remove(const std::string& id, std::string& err) {
+    auto it = std::find_if(takes_.begin(), takes_.end(),
+                           [&](const Take& t) { return t.id == id; });
+    if (it == takes_.end()) {
+        err = "take not found: " + id;
+        return false;
+    }
+    takes_.erase(it);
+    return save(err);
 }
 
 const Take* Library::find(const std::string& id) const {

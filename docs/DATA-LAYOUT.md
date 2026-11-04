@@ -50,14 +50,15 @@ $XDG_DATA_HOME/game-audio-forge/
 │   └── <profile>/
 │       ├── sfx/
 │       ├── music/
-│       └── library.db       #   SQLite metadata for this profile
-├── projects/                # project profile definitions (*.toml)
+│       └── library.json     #   take metadata for this profile
+├── projects/                # project profile definitions (*.json)
 ├── presets/                 # user presets (shipped ones live in repo /presets)
 └── cache/                   # temp inference data (scratch)
 
 $XDG_CONFIG_HOME/game-audio-forge/
 ├── gaf.json                 # user config (copy of repo default + overrides)
-└── gaf.local.json           # machine-specific overrides (gitignored)
+├── gaf.local.json           # machine-specific overrides (gitignored)
+└── state.json               # active profile (app state)
 
 $XDG_CACHE_HOME/game-audio-forge/
 └── downloads/               # model download cache (partial files, etc.)
@@ -65,8 +66,8 @@ $XDG_CACHE_HOME/game-audio-forge/
 
 ## Library record
 
-Each take in a profile library is a row in `library.db` (SQLite) plus an audio
-file on disk:
+Each take in a profile library is an entry in `library.json` (a JSON array)
+plus an audio file on disk:
 
 | Field | Description |
 |---|---|
@@ -83,6 +84,15 @@ file on disk:
 | `license` | model license (recorded at generation) |
 | `tags` | free-form tags |
 | `created_at` | timestamp |
+| `peak` | peak amplitude (0–1) |
+| `rms` | root-mean-square amplitude |
+| `loudness_lufs` | approximate loudness (RMS-based; true LUFS is M4) |
+| `silence_head_s` | leading silence duration |
+| `silence_tail_s` | trailing silence duration |
+| `qc_ok` | false if QC flagged the take (silent or over-loud) |
+
+The QC fields are filled automatically by the `qc` module after every
+generation and import.
 
 ## Rationale
 
@@ -90,6 +100,8 @@ file on disk:
   packaging.
 - **Per-profile libraries** give independent project scopes while sharing the
   model cache (models are downloaded once, used by all profiles).
-- **SQLite + sidecar files** keeps the library queryable without a server.
+- **JSON library** keeps the store dependency-free and human-readable for M3.
+  The API is small; a later migration to SQLite (for a cross-profile "central"
+  index) is cheap and is an M4+ option.
 - **Gitignored by default** means a stray `git add -A` cannot leak weights or
   audio.

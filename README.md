@@ -122,8 +122,9 @@ weights keep their own licenses and are not redistributed by this project. See
 - **M2 — Audio Engines** ✅: audio.cpp engine (server), ACE-Step 1.5 +
   MiDashengLM-Gen generate on CUDA, GPU benchmarks, model management, `gaf`
   CLI + CMake + unit tests.
-- **M3 — Audio Workspace**: project profiles, sound library, prompt management,
-  presets, generation + QC.
+- **M3 — Audio Workspace** ✅: project profiles, per-profile sound library,
+  presets, generation orchestration (`--count` retakes) + automatic quality
+  control, 18 unit + integration tests.
 - **M4 — Processing & Export**: analysis, mastering basics, loops, variants,
   Defold export.
 - **M5 — Automation**: MCP, batch generation, automated tests, agent workflows.

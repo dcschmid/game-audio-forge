@@ -1,8 +1,8 @@
 # Roadmap
 
 Milestones are ordered by dependency. Each lists its deliverables and a
-definition of done. M1 and M2 are complete; the next milestone is
-**M3 — Audio Workspace**.
+definition of done. M1, M2, and M3 are complete; the next milestone is
+**M4 — Processing & Export**.
 
 ## M1 — Foundation ✅
 
@@ -42,19 +42,20 @@ Goal: prove the inference foundation on the target hardware.
 locally on CUDA, with measured VRAM/RTF, and models are managed from config.
 **Met** — `gaf generate` produces both; benchmarks recorded.
 
-## M3 — Audio Workspace
+## M3 — Audio Workspace ✅
 
 Goal: the product layer around the engines.
 
-- [ ] Project profiles (independent libraries, shared model cache)
-- [ ] Central sound & music library (SQLite + metadata)
-- [ ] Prompt management (save, tag, reuse)
-- [ ] Music & sound presets (shipped + user)
-- [ ] Generation orchestration + quality control
-- [ ] CLI surface (`gaf`)
+- [x] Project profiles (independent libraries, shared model cache)
+- [x] Per-profile sound & music library (JSON store; SQLite deferred to M4+)
+- [x] Prompt management (save, tag, reuse)
+- [x] Music & sound presets (shipped + user, name shadowing)
+- [x] Generation orchestration (`--count` retakes) + automatic quality control
+- [x] CLI surface (`gaf`)
 
 **Definition of done:** a user can create a profile, generate takes from
-presets, browse the library, and re-run a saved prompt.
+presets, browse the library, and re-run a saved prompt. ✅ (18 unit +
+integration tests pass, including a live generation round-trip.)
 
 ## M4 — Processing & Export
 

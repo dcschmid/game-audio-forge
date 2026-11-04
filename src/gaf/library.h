@@ -20,6 +20,13 @@ struct Take {
     std::string license;
     std::vector<std::string> tags;
     std::string created_at;    // ISO-8601
+    // Quality-control results (filled at generation/import time).
+    double peak = 0.0;
+    double rms = 0.0;
+    double loudness_lufs = 0.0;
+    double silence_head_s = 0.0;
+    double silence_tail_s = 0.0;
+    bool qc_ok = true;         // false if QC flagged a problem
 };
 
 // A profile library backed by a JSON file (library.json) in the profile dir.
@@ -41,6 +48,9 @@ public:
 
     // Add a take and persist. Returns the take id.
     std::string add(const Take& take, std::string& err);
+    // Remove a take by id (the audio file is left in place). Returns false if
+    // the id is not found.
+    bool remove(const std::string& id, std::string& err);
     // Find a take by id (nullptr if absent).
     const Take* find(const std::string& id) const;
 

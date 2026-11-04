@@ -41,6 +41,9 @@ add_library(gaf_core STATIC
   src/gaf/config.cpp
   src/gaf/http.cpp
   src/gaf/library.cpp
+  src/gaf/presets.cpp
+  src/gaf/profiles.cpp
+  src/gaf/qc.cpp
 )
 target_include_directories(gaf_core PUBLIC src)
 target_link_libraries(gaf_core PUBLIC nlohmann_json::nlohmann_json)
@@ -58,6 +61,10 @@ enable_testing()
 add_executable(gaf_tests
   tests/test_config.cpp
   tests/test_library.cpp
+  tests/test_qc.cpp
+  tests/test_profiles.cpp
+  tests/test_presets.cpp
+  tests/test_generate.cpp
   tests/test_main.cpp
 )
 target_link_libraries(gaf_tests PRIVATE gaf_core)

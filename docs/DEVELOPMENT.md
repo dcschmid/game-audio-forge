@@ -104,19 +104,42 @@ for what fits the 8 GB budget.
 ```bash
 gaf config show                 # resolved config + paths
 gaf models list                 # models registered with the engine
+
+# Profiles (independent project scopes)
+gaf profile create demo --desc "my game" --rate 48000 --bits 16
+gaf profile use demo
+
+# Presets (reusable generation recipes)
+gaf preset list
+gaf preset save my-sfx --model midashenglm_gen --text "door slam" --kind sfx
+
+# Generation (model id or preset name)
 gaf generate midashenglm_gen --text "door slam" --duration 3 --seed 42
+gaf generate my-sfx --count 3 --tags door,slam
 gaf generate ace_step --text "dark ambient loop" --duration 24 --seed 7
-gaf library list --profile default
+
+# Library (per-profile)
+gaf library list --profile demo
+gaf library list --kind music
+gaf library show <id>
+gaf library import file.wav --kind sfx --prompt "imported"
 scripts/gaf-benchmark.sh ace_step "dark ambient loop" 24 7
 ```
 
+Every generation/import runs automatic quality control (duration, peak, RMS,
+approximate LUFS, head/tail silence) and stores the result on the take.
+
 ## Testing
 
-- **Unit tests** (no GPU): config resolution (XDG paths, JSON parse) and the
-  library (add/find, round-trip, empty). Run locally via
-  `ctest --test-dir build`.
-- **Integration** (GPU + model): generation is exercised manually via the CLI
-  and `scripts/gaf-benchmark.sh`; an automated round-trip test is an M3 item.
+- **Unit tests** (no GPU): config resolution (XDG paths, JSON parse), the
+  library (add/find, round-trip, empty), QC (sine amplitude/duration, silence,
+  head/tail silence, invalid file), profiles (create/get, list/remove, active
+  persistence), and presets (save/find, shipped/user shadowing, remove). Run
+  locally via `ctest --test-dir build`.
+- **Integration** (GPU + model): `generate_roundtrip` POSTs a short SFX to the
+  live engine, decodes the base64 WAV, and verifies it parses and is
+  non-silent. It skips cleanly when no engine is reachable, so the suite stays
+  green without a server.
 - **Benchmarks**: RTF and peak VRAM on the RTX 5070 Laptop — see
   [BENCHMARKS.md](BENCHMARKS.md).
 
