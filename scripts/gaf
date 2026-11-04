@@ -141,6 +141,8 @@ cmd_music() {
   fi
 
   local lm_model synth_model steps shift outfmt device duration vae_chunk
+  local bpm keyscale timesignature vocal_language lm_temperature lm_cfg_scale
+  local lm_top_p lm_top_k use_cot_caption solver peak_clip
   lm_model="$(cfg music.lm_model "acestep-5Hz-lm-0.6B-Q8_0.gguf")"
   synth_model="$(cfg music.synth_model "acestep-v15-turbo-Q8_0.gguf")"
   steps="$(cfg music.inference_steps 8)"
@@ -149,6 +151,18 @@ cmd_music() {
   device="$(cfg music.device CUDA0)"
   duration="$(cfg music.duration 32)"
   vae_chunk="$(cfg music.vae_chunk 512)"
+  # Erweitere Parameter (Defaults = "LLM/Modell entscheidet selbst"):
+  bpm="$(cfg music.bpm 0)"
+  keyscale="$(cfg music.keyscale "")"
+  timesignature="$(cfg music.timesignature "")"
+  vocal_language="$(cfg music.vocal_language "")"
+  lm_temperature="$(cfg music.lm_temperature 0.85)"
+  lm_cfg_scale="$(cfg music.lm_cfg_scale 2.0)"
+  lm_top_p="$(cfg music.lm_top_p 0.9)"
+  lm_top_k="$(cfg music.lm_top_k 0)"
+  use_cot_caption="$(cfg music.use_cot_caption true)"
+  solver="$(cfg music.solver euler)"
+  peak_clip="$(cfg music.peak_clip 10)"
 
   local seed
   seed="$(date +%s%N | cut -c1-10)"
@@ -173,6 +187,17 @@ cmd_music() {
     --argjson steps "$steps" \
     --argjson shift "$shift" \
     --argjson duration "$duration" \
+    --argjson bpm "$bpm" \
+    --arg keyscale "$keyscale" \
+    --arg timesignature "$timesignature" \
+    --arg vocal_language "$vocal_language" \
+    --argjson lm_temperature "$lm_temperature" \
+    --argjson lm_cfg_scale "$lm_cfg_scale" \
+    --argjson lm_top_p "$lm_top_p" \
+    --argjson lm_top_k "$lm_top_k" \
+    --argjson use_cot_caption "$use_cot_caption" \
+    --arg solver "$solver" \
+    --argjson peak_clip "$peak_clip" \
     --arg outfmt "$outfmt" \
     --arg lm "$lm_model" \
     --arg synth "$synth_model" \
@@ -183,6 +208,17 @@ cmd_music() {
        inference_steps: $steps,
        shift: $shift,
        duration: $duration,
+       bpm: $bpm,
+       keyscale: $keyscale,
+       timesignature: $timesignature,
+       vocal_language: $vocal_language,
+       lm_temperature: $lm_temperature,
+       lm_cfg_scale: $lm_cfg_scale,
+       lm_top_p: $lm_top_p,
+       lm_top_k: $lm_top_k,
+       use_cot_caption: $use_cot_caption,
+       solver: $solver,
+       peak_clip: $peak_clip,
        output_format: $outfmt,
        lm_model: $lm,
        synth_model: $synth
@@ -223,13 +259,19 @@ cmd_music() {
     --argjson steps "$steps" \
     --argjson shift "$shift" \
     --argjson duration "$duration" \
+    --argjson bpm "$bpm" \
+    --arg keyscale "$keyscale" \
+    --arg timesignature "$timesignature" \
+    --argjson lm_temperature "$lm_temperature" \
+    --arg solver "$solver" \
     --arg outfmt "$outfmt" \
     --arg device "$device" \
     --arg f "$(basename "$target")" \
     --arg created "$(date -Iseconds)" \
     '{prompt:$prompt, seed:$seed, generator:$generator, lm_model:$lm, synth_model:$synth,
-      inference_steps:$steps, shift:$shift, duration_s:$duration, output_format:$outfmt,
-      device:$device, file:$f, created:$created}'
+      inference_steps:$steps, shift:$shift, duration_s:$duration, bpm:$bpm,
+      keyscale:$keyscale, timesignature:$timesignature, lm_temperature:$lm_temperature,
+      solver:$solver, output_format:$outfmt, device:$device, file:$f, created:$created}'
 
   log "Fertig: $target"
   log "  Metadaten: ${target%.*}.meta.json"
@@ -257,10 +299,11 @@ cmd_sfx() {
     log "GPU frei."
   fi
 
-  local steps duration cfg device
+  local steps duration cfg sway device
   steps="$(cfg sfx.steps 25)"
   duration="$(cfg sfx.duration 5)"
   cfg="$(cfg sfx.cfg 5.0)"
+  sway="$(cfg sfx.sway -1.0)"
   device="$(cfg sfx.device CUDA0)"
 
   local seed
@@ -287,6 +330,7 @@ cmd_sfx() {
     --steps "$steps" \
     --duration "$duration" \
     --cfg "$cfg" \
+    --sway "$sway" \
     --seed "$seed" \
     --output "$target"
 
@@ -302,11 +346,12 @@ cmd_sfx() {
     --argjson steps "$steps" \
     --argjson duration "$duration" \
     --argjson cfg "$cfg" \
+    --argjson sway "$sway" \
     --arg device "$device" \
     --arg created "$(date -Iseconds)" \
     --arg f "$(basename "$target")" \
     '{prompt:$prompt, seed:$seed, generator:$generator, steps:$steps, duration_s:$duration,
-      cfg:$cfg, device:$device, created:$created, file:$f,
+      cfg:$cfg, sway:$sway, device:$device, created:$created, file:$f,
       note:"Dasheng-Original ist 16 kHz Mono; ggf. per FFmpeg resampled."}'
 
   log "SFX fertig: $target"
