@@ -1,78 +1,32 @@
 {
-  "app": {
-    "name": "game-audio-forge",
-    "version": "0.1.0"
+  "tools_root": "~/dev/github/tools",
+  "output_root": "~/dev/github/game-audio-forge/output",
+  "music": {
+    "repo": "acestep.cpp",
+    "lm_model": "acestep-5Hz-lm-0.6B-Q8_0.gguf",
+    "synth_model": "acestep-v15-turbo-Q8_0.gguf",
+    "inference_steps": 8,
+    "shift": 3.0,
+    "duration": 32,
+    "vae_chunk": 512,
+    "output_format": "wav16",
+    "device": "CUDA0"
   },
-  "engine": {
-    "name": "audio.cpp",
-    "backends": ["cuda", "vulkan", "rocm", "cpu"],
-    "server": true,
+  "sfx": {
+    "repo": "audiogen.cpp",
+    "model_dir": "models",
+    "steps": 25,
+    "duration": 5,
+    "cfg": 5.0,
+    "device": "CUDA0"
+  },
+  "ui": {
     "host": "127.0.0.1",
-    "port": 17495
+    "port": 8085
   },
-  "models": {
-    "ace_step_1_5": {
-      "family": "ace_step",
-      "task": "music",
-      "license": "MIT",
-      "commercial": "true",
-      "default": true,
-      "package": "ace_step_turbo_q8_0"
-    },
-    "midashenglm_gen": {
-      "family": "midashenglm_gen",
-      "task": "sfx",
-      "license": "Apache-2.0",
-      "commercial": "true",
-      "default": true,
-      "package": "midashenglm_gen_q8_0"
-    },
-    "stable_audio_3_sfx": {
-      "family": "stable_audio",
-      "task": "sfx",
-      "license": "Stability AI Community",
-      "commercial": "conditional",
-      "default": false,
-      "package": "stable_audio_3_small_sfx"
-    },
-    "stable_audio_3_music": {
-      "family": "stable_audio",
-      "task": "music",
-      "license": "Stability AI Community",
-      "commercial": "conditional",
-      "default": false,
-      "package": "stable_audio_3_small_music"
-    },
-    "controlfoley": {
-      "family": "controlfoley",
-      "task": "sfx",
-      "license": "TBD",
-      "commercial": "unknown",
-      "default": false,
-      "package": "controlfoley"
-    },
-    "minimax_music3": {
-      "family": "minimax_music3",
-      "task": "music",
-      "license": "MiniMax-Music3 Community",
-      "commercial": "conditional",
-      "default": false,
-      "package": "minimax_music3"
-    }
-  },
-  "profiles": {
-    "default": "default"
-  },
-  "export": {
-    "default_format": "wav",
-    "default_sample_rate": 48000,
-    "default_bit_depth": 16,
-    "targets": ["defold"]
-  },
-  "processing": {
-    "ffmpeg": "ffmpeg",
-    "denoise": false,
-    "normalize": true,
-    "loudness_target_lufs": -16.0
+  "ffmpeg": {
+    "enabled": true,
+    "target_format": "wav",
+    "target_rate": 48000
   }
 }

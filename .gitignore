@@ -1,33 +1,15 @@
-# --- Build artifacts ---
-build/
-build-*/
-cmake-build-*/
-out/
-dist/
-*.o
-*.obj
-*.a
-*.so
-*.so.*
-*.dylib
-*.dll
-*.exe
-*.out
-CMakeCache.txt
-CMakeFiles/
-CMakeUserPresets.json
-compile_commands.json
-.ninja_deps
-.ninja_log
-.ninja_state
+# --- Generierte Audio-Dateien (NIEMALS committen) ---
+output/
+*.wav
+*.flac
+*.mp3
+*.ogg
+*.m4a
+*.aiff
+*.opus
+*.meta.json
 
-# --- Third-party / vendored (fetched at build time, never committed) ---
-third_party/
-external/
-deps/
-vendor/
-
-# --- Model weights & large audio assets (NEVER commit) ---
+# --- Modellgewichte (bleiben außerhalb des Repos) ---
 models/
 *.gguf
 *.ggml
@@ -37,41 +19,19 @@ models/
 *.pt
 *.pth
 *.onnx
-*.tflite
-*.wav
-*.flac
-*.mp3
-*.ogg
-*.m4a
-*.aiff
-*.opus
-*.mid
-*.midi
+*.model
 
-# --- Generated / runtime data ---
-data/
-cache/
-tmp/
-*.tmp
-*.log
-*.pid
+# --- Build-Artefakte der externen Generatoren (liegen in ~/dev/github/tools) ---
+build/
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+.ninja_deps
+.ninja_log
 
-# --- Python (reference tooling only, no runtime dependency) ---
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# --- Node (Soundbox reference / MCP tooling) ---
-node_modules/
-npm-debug.log*
-yarn-error.log*
-
-# --- Editors / OS ---
+# --- Editor / OS ---
 .vscode/
 .idea/
 *.swp
@@ -79,25 +39,7 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# --- Local secrets / machine-specific config (NEVER commit) ---
+# --- Lokale / maschinen-spezifische Config ---
 *.local.json
 .env
 .env.*
-secrets/
-credentials*
-*.pem
-*.key
-id_ed25519*
-id_rsa*
-
-# --- Keep these dirs tracked even when empty ---
-!config/.gitkeep
-!presets/.gitkeep
-!examples/.gitkeep
-!tests/.gitkeep
-!scripts/.gitkeep
-!docs/.gitkeep
-!src/.gitkeep
-
-# --- Local engine tooling (prebuilt audio.cpp + CUDA runtime, never committed) ---
-.tools/

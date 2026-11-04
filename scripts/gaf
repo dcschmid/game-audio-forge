@@ -1,0 +1,434 @@
+#!/usr/bin/env bash
+#
+# gaf — Game Audio Forge CLI
+#
+# Lokale Audio-Werkstatt: Musik (acestep.cpp) + Soundeffekte (audiogen.cpp).
+# C++-First, keine eigenen Dienste. Nutzt die vorhandenen CLI-/HTTP-Schnittstellen.
+#
+# Befehle:
+#   gaf music "Prompt"   Instrumentale Musik generieren (ACE-Step 1.5, Turbo 0.6B-LM)
+#   gaf sfx "Prompt"     Soundeffekt generieren (Dasheng AudioGen)
+#   gaf ui               acestep.cpp Weboberfläche starten
+#   gaf status           GPU, Binaries, Modelle, FFmpeg anzeigen
+#   gaf help             Diese Hilfe
+#
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Pfade & Konfiguration
+# ---------------------------------------------------------------------------
+GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG_FILE="$GAF_HOME/config/gaf.json"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "gaf: Konfiguration nicht gefunden: $CONFIG_FILE" >&2
+  exit 1
+fi
+
+# jq-Helfer: Wert aus der Config lesen (verschachtelte Pfade via "a.b.c"), ~ expandieren.
+cfg() {
+  local key="$1" def="${2:-}"
+  local v
+  v="$(jq -r --arg k "$key" 'getpath($k | split(".")) // empty' "$CONFIG_FILE" 2>/dev/null || true)"
+  [[ -z "$v" ]] && v="$def"
+  # ~ expandieren
+  v="${v/#\~/$HOME}"
+  printf '%s' "$v"
+}
+
+TOOLS_ROOT="$(cfg tools_root "$HOME/dev/github/tools")"
+OUTPUT_ROOT="$(cfg output_root "$GAF_HOME/output")"
+
+MUSIC_REPO="$TOOLS_ROOT/acestep.cpp"
+SFX_REPO="$TOOLS_ROOT/audiogen.cpp"
+
+MUSIC_BIN_LM="$MUSIC_REPO/build/ace-lm"
+MUSIC_BIN_SYNTH="$MUSIC_REPO/build/ace-synth"
+MUSIC_BIN_SERVER="$MUSIC_REPO/build/ace-server"
+MUSIC_MODELS="$MUSIC_REPO/models"
+
+SFX_BIN="$SFX_REPO/build-cuda/dasheng-audiogen"
+SFX_MODELS="$SFX_REPO/models"
+
+# ---------------------------------------------------------------------------
+# Hilfsfunktionen
+# ---------------------------------------------------------------------------
+GAF_TMPS=()
+cleanup() { local t; for t in "${GAF_TMPS[@]:-}"; do [[ -n "$t" && -d "$t" ]] && rm -rf "$t"; done; return 0; }
+trap cleanup EXIT
+
+log()  { printf '\033[1;34m[gaf]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[gaf:warn]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[gaf:err]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Slug aus Prompt: klein, nur [a-z0-9-], max. ~40 Zeichen.
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
+    | cut -c1-40 \
+    | sed -E 's/-+$//'
+}
+
+# Kollisionssicherer Zielname: hängt bei Bedarf -2, -3, ... an.
+unique_path() {
+  local dir="$1" base="$2" ext="$3"
+  local candidate="$dir/${base}.${ext}" n=2
+  while [[ -e "$candidate" ]]; do
+    candidate="$dir/${base}-${n}.${ext}"
+    n=$((n+1))
+  done
+  printf '%s' "$candidate"
+}
+
+# Metadaten-Sidecar neben der Audiodatei schreiben.
+# Aufruf: write_meta <audio.wav> <jq-args…> — Rest wird an jq -n weitergereicht.
+write_meta() {
+  local audio="$1"; shift
+  local meta="${audio%.*}.meta.json"
+  jq -n "$@" > "$meta" 2>/dev/null || true
+}
+
+# Optionaler FFmpeg-Schritt: transcodiert/resamplet NUR bei echtem Wechsel
+# gegen die Quell-Rate (Musik 48k, SFX 16k). Quell-Rate = $2, Kanäle = $3.
+# Gibt den finalen Dateipfad zurück (kann neue Endung tragen).
+finalize_audio() {
+  local file="$1" src_rate="$2" ch="$3"
+  local ff_on ff_fmt ff_rate
+  ff_on="$(cfg ffmpeg.enabled true)"; ff_fmt="$(cfg ffmpeg.target_format wav)"; ff_rate="$(cfg ffmpeg.target_rate 48000)"
+  if [[ "$ff_on" != "true" ]] || ! command -v ffmpeg >/dev/null 2>&1; then
+    printf '%s' "$file"; return
+  fi
+  local src_ext="${file##*.}"
+  if [[ "$ff_fmt" == "$src_ext" && "$ff_rate" == "$src_rate" ]]; then
+    printf '%s' "$file"; return   # kein Wechsel nötig
+  fi
+  local out="${file%.*}.${ff_fmt}"
+  local tmp="${out%.*}.$$.${ff_fmt}"
+  if ffmpeg -y -loglevel error -i "$file" -ar "$ff_rate" -ac "$ch" "$tmp" 2>/dev/null \
+     && mv -f "$tmp" "$out"; then
+    [[ "$out" != "$file" ]] && rm -f "$file"
+    printf '%s' "$out"
+  else
+    rm -f "$tmp"; printf '%s' "$file"
+  fi
+}
+
+# GPU-Beschäftigung prüfen (keine parallele GPU-Generierung).
+# "Belegt" = ein anderer GAF-Generator-Prozess läuft (ace-lm, ace-synth,
+# dasheng-audiogen). Bewusst NICHT nvidia-smi-Compute-Apps: Der Wayland-
+# Kompositor (kwin_wayland) und idle-Dienste (z. B. local-image-ai sd-server)
+# halten die GPU dauerhaft "belegt" und würden die Warteschleife blockieren.
+gpu_busy() {
+  pgrep -f 'ace-lm|ace-synth|dasheng-audiogen' >/dev/null 2>&1
+}
+
+# ---------------------------------------------------------------------------
+# gaf music "Prompt"
+# ---------------------------------------------------------------------------
+cmd_music() {
+  local prompt="${1:-}"
+  [[ -z "$prompt" ]] && die "gaf music: Prompt fehlt. Beispiel: gaf music \"upbeat metal racing track\""
+
+  [[ -x "$MUSIC_BIN_LM" ]]    || die "ace-lm nicht gefunden: $MUSIC_BIN_LM (Build fehlt?)"
+  [[ -x "$MUSIC_BIN_SYNTH" ]] || die "ace-synth nicht gefunden: $MUSIC_BIN_SYNTH (Build fehlt?)"
+  [[ -d "$MUSIC_MODELS" ]]    || die "Modelle nicht gefunden: $MUSIC_MODELS (./models.sh ausführen?)"
+
+  if gpu_busy; then
+    warn "GPU ist belegt — warte, bis sie frei ist (keine parallele Generierung)…"
+    while gpu_busy; do sleep 5; done
+    log "GPU frei."
+  fi
+
+  local lm_model synth_model steps shift outfmt device duration vae_chunk
+  lm_model="$(cfg music.lm_model "acestep-5Hz-lm-0.6B-Q8_0.gguf")"
+  synth_model="$(cfg music.synth_model "acestep-v15-turbo-Q8_0.gguf")"
+  steps="$(cfg music.inference_steps 8)"
+  shift="$(cfg music.shift 3.0)"
+  outfmt="$(cfg music.output_format wav16)"
+  device="$(cfg music.device CUDA0)"
+  duration="$(cfg music.duration 32)"
+  vae_chunk="$(cfg music.vae_chunk 512)"
+
+  local seed
+  seed="$(date +%s%N | cut -c1-10)"
+
+  local ts slug outdir
+  ts="$(date +%Y%m%d-%H%M%S)"
+  slug="$(slugify "$prompt")"
+  outdir="$OUTPUT_ROOT/music"
+  mkdir -p "$outdir"
+
+  # Temporäres Arbeitsverzeichnis für die Zwei-Stufen-Pipeline.
+  # Cleanup: EXIT-Trap ( RETURN-Traps lecken über Funktionsgrenzen ).
+  local work
+  work="$(mktemp -d)"
+  GAF_TMPS+=("$work")
+
+  local req="$work/request.json"
+  jq -n \
+    --arg caption "$prompt" \
+    --arg lyrics "[Instrumental]" \
+    --argjson seed "$seed" \
+    --argjson steps "$steps" \
+    --argjson shift "$shift" \
+    --argjson duration "$duration" \
+    --arg outfmt "$outfmt" \
+    --arg lm "$lm_model" \
+    --arg synth "$synth_model" \
+    '{
+       caption: $caption,
+       lyrics: $lyrics,
+       seed: $seed,
+       inference_steps: $steps,
+       shift: $shift,
+       duration: $duration,
+       output_format: $outfmt,
+       lm_model: $lm,
+       synth_model: $synth
+     }' > "$req"
+
+  log "Musik generieren: \"$prompt\""
+  log "  LM=$lm_model  DiT=$synth_model  steps=$steps  seed=$seed"
+
+  # Stufe 1: LM → Audio-Codes (request.json → request0.json)
+  log "  [1/2] ace-lm …"
+  ( cd "$work" && "$MUSIC_BIN_LM" --models "$MUSIC_MODELS" --request request.json --device "$device" )
+
+  # Stufe 2: DiT+VAE → Audio (request0.json → request00.wav)
+  log "  [2/2] ace-synth …"
+  ( cd "$work" && "$MUSIC_BIN_SYNTH" --models "$MUSIC_MODELS" --request request0.json --device "$device" --vae-chunk "$vae_chunk" )
+
+  # Ergebnis finden (die erzeugte .wav, nicht die Eingabe).
+  local produced
+  produced="$(find "$work" -maxdepth 1 -name '*.wav' -printf '%T@ %p\n' 2>/dev/null \
+             | sort -n | tail -1 | cut -d' ' -f2-)"
+  [[ -n "$produced" && -f "$produced" ]] || die "Keine WAV-Ausgabe gefunden in $work"
+
+  local target
+  target="$(unique_path "$outdir" "${ts}_${slug}" "wav")"
+  cp -f "$produced" "$target"
+
+  # Quelle: 48 kHz Stereo. Transcode nur bei echtem Format-/Raten-Wechsel.
+  local before="$target"
+  target="$(finalize_audio "$target" 48000 2)"
+  [[ "$target" != "$before" ]] && log "  FFmpeg: $(basename "$target")"
+
+  write_meta "$target" \
+    --arg prompt "$prompt" \
+    --argjson seed "$seed" \
+    --arg generator "acestep.cpp" \
+    --arg lm "$lm_model" \
+    --arg synth "$synth_model" \
+    --argjson steps "$steps" \
+    --argjson shift "$shift" \
+    --argjson duration "$duration" \
+    --arg outfmt "$outfmt" \
+    --arg device "$device" \
+    --arg f "$(basename "$target")" \
+    --arg created "$(date -Iseconds)" \
+    '{prompt:$prompt, seed:$seed, generator:$generator, lm_model:$lm, synth_model:$synth,
+      inference_steps:$steps, shift:$shift, duration_s:$duration, output_format:$outfmt,
+      device:$device, file:$f, created:$created}'
+
+  log "Fertig: $target"
+  log "  Metadaten: ${target%.*}.meta.json"
+}
+
+# ---------------------------------------------------------------------------
+# gaf sfx "Prompt"
+# ---------------------------------------------------------------------------
+cmd_sfx() {
+  local prompt="${1:-}"
+  [[ -z "$prompt" ]] && die "gaf sfx: Prompt fehlt. Beispiel: gaf sfx \"kart engine revving\""
+
+  [[ -x "$SFX_BIN" ]]    || die "dasheng-audiogen nicht gefunden: $SFX_BIN (make cuda fehlt?)"
+  [[ -d "$SFX_MODELS" ]] || die "Modelle nicht gefunden: $SFX_MODELS (make download-models-q4?)"
+
+  # Alle vier Modelldateien müssen vorhanden sein.
+  local f
+  for f in t5_encoder.gguf dit.gguf vocoder.gguf spiece.model; do
+    [[ -f "$SFX_MODELS/$f" ]] || die "Modelldatei fehlt: $SFX_MODELS/$f"
+  done
+
+  if gpu_busy; then
+    warn "GPU ist belegt — warte, bis sie frei ist (keine parallele Generierung)…"
+    while gpu_busy; do sleep 5; done
+    log "GPU frei."
+  fi
+
+  local steps duration cfg device
+  steps="$(cfg sfx.steps 25)"
+  duration="$(cfg sfx.duration 5)"
+  cfg="$(cfg sfx.cfg 5.0)"
+  device="$(cfg sfx.device CUDA0)"
+
+  local seed
+  seed="$(date +%s%N | cut -c1-10)"
+
+  local ts slug outdir
+  ts="$(date +%Y%m%d-%H%M%S)"
+  slug="$(slugify "$prompt")"
+  outdir="$OUTPUT_ROOT/sfx"
+  mkdir -p "$outdir"
+
+  local target
+  target="$(unique_path "$outdir" "${ts}_${slug}" "wav")"
+
+  log "SFX generieren: \"$prompt\""
+  log "  steps=$steps  duration=${duration}s  cfg=$cfg  seed=$seed"
+
+  "$SFX_BIN" \
+    "$SFX_MODELS/t5_encoder.gguf" \
+    "$SFX_MODELS/dit.gguf" \
+    "$SFX_MODELS/vocoder.gguf" \
+    "$SFX_MODELS/spiece.model" \
+    --caption "$prompt" \
+    --steps "$steps" \
+    --duration "$duration" \
+    --cfg "$cfg" \
+    --seed "$seed" \
+    --output "$target"
+
+  # Quelle: 16 kHz Mono. Transcode nur bei echtem Format-/Raten-Wechsel.
+  local before="$target"
+  target="$(finalize_audio "$target" 16000 1)"
+  [[ "$target" != "$before" ]] && log "  FFmpeg: $(basename "$target") (Dasheng-Original: 16 kHz Mono)"
+
+  write_meta "$target" \
+    --arg prompt "$prompt" \
+    --argjson seed "$seed" \
+    --arg generator "audiogen.cpp (Dasheng AudioGen)" \
+    --argjson steps "$steps" \
+    --argjson duration "$duration" \
+    --argjson cfg "$cfg" \
+    --arg device "$device" \
+    --arg created "$(date -Iseconds)" \
+    --arg f "$(basename "$target")" \
+    '{prompt:$prompt, seed:$seed, generator:$generator, steps:$steps, duration_s:$duration,
+      cfg:$cfg, device:$device, created:$created, file:$f,
+      note:"Dasheng-Original ist 16 kHz Mono; ggf. per FFmpeg resampled."}'
+
+  log "SFX fertig: $target"
+  log "  Metadaten: ${target%.*}.meta.json"
+}
+
+# ---------------------------------------------------------------------------
+# gaf ui
+# ---------------------------------------------------------------------------
+cmd_ui() {
+  [[ -x "$MUSIC_BIN_SERVER" ]] || die "ace-server nicht gefunden: $MUSIC_BIN_SERVER (Build fehlt?)"
+  [[ -d "$MUSIC_MODELS" ]]     || die "Modelle nicht gefunden: $MUSIC_MODELS"
+
+  local host port
+  host="$(cfg ui.host 127.0.0.1)"
+  port="$(cfg ui.port 8085)"
+
+  log "Starte acestep.cpp Weboberfläche: http://$host:$port"
+  log "  (Strg+C zum Beenden)"
+  exec "$MUSIC_BIN_SERVER" \
+    --host "$host" \
+    --port "$port" \
+    --models "$MUSIC_MODELS" \
+    --adapters "$MUSIC_REPO/adapters" \
+    --max-batch 1
+}
+
+# ---------------------------------------------------------------------------
+# gaf status
+# ---------------------------------------------------------------------------
+cmd_status() {
+  echo "=== GPU ==="
+  nvidia-smi --query-gpu=name,memory.total,memory.used,driver_version \
+             --format=csv,noheader 2>/dev/null || echo "  nvidia-smi nicht verfügbar"
+  echo
+  echo "=== Binaries ==="
+  _bin "ace-lm"    "$MUSIC_BIN_LM"
+  _bin "ace-synth" "$MUSIC_BIN_SYNTH"
+  _bin "ace-server" "$MUSIC_BIN_SERVER"
+  _bin "dasheng-audiogen" "$SFX_BIN"
+  echo
+  echo "=== Modelle ==="
+  _dir "ACE-Step (music)" "$MUSIC_MODELS"
+  _dir "Dasheng (sfx)"    "$SFX_MODELS"
+  echo
+  echo "=== FFmpeg ==="
+  if command -v ffmpeg >/dev/null 2>&1; then
+    echo "  ffmpeg: $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}')"
+  else
+    echo "  ffmpeg: nicht installiert (optional, für OGG/FLAC/Resample)"
+  fi
+  echo
+  echo "=== Konfiguration ==="
+  echo "  tools_root:  $TOOLS_ROOT"
+  echo "  output_root: $OUTPUT_ROOT"
+}
+
+_bin() {
+  if [[ -x "$2" ]]; then
+    printf '  %-18s OK   %s\n' "$1" "$2"
+  else
+    printf '  %-18s FEHLT  %s\n' "$1" "$2"
+  fi
+}
+
+_dir() {
+  if [[ -d "$2" ]] && [[ -n "$(ls -A "$2" 2>/dev/null)" ]]; then
+    local n
+    n="$(ls -A "$2" | wc -l | tr -d ' ')"
+    printf '  %-18s OK   %s (%s Dateien)\n' "$1" "$2" "$n"
+  else
+    printf '  %-18s FEHLT  %s\n' "$1" "$2"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# gaf help
+# ---------------------------------------------------------------------------
+cmd_help() {
+  cat <<'EOF'
+gaf — Game Audio Forge CLI
+
+Verwendung:
+  gaf music "Prompt"    Instrumentale Musik (ACE-Step 1.5, Turbo 0.6B-LM, CUDA)
+  gaf sfx "Prompt"      Soundeffekt (Dasheng AudioGen, CUDA)
+  gaf ui                acestep.cpp Weboberfläche starten (http://127.0.0.1:8085)
+  gaf status            GPU, Binaries, Modelle, FFmpeg anzeigen
+  gaf help              Diese Hilfe
+
+Optionen (via config/gaf.json):
+  music.lm_model, music.synth_model, music.inference_steps, music.shift
+  sfx.steps, sfx.duration, sfx.cfg
+  ffmpeg.enabled, ffmpeg.target_format, ffmpeg.target_rate
+
+Beispiele:
+  gaf music "aggressive metal racing track, fast tempo, driving drums"
+  gaf sfx "kart engine revving, high pitch"
+  gaf sfx "car tire drifting on asphalt, screech"
+  gaf sfx "heavy rain on pavement"
+
+Hinweise:
+  - Ausgabe: WAV, lesbare Dateinamen, Metadaten-Sidecar (.meta.json) mit Prompt+Seed.
+  - Bestehende Dateien werden nie überschrieben (Kollision → -2, -3, …).
+  - Keine parallele GPU-Generierung: gaf wartet, bis die GPU frei ist.
+  - Dasheng liefert 16 kHz Mono; FFmpeg resamplet optional auf 48 kHz.
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    music)  cmd_music "$@" ;;
+    sfx)    cmd_sfx "$@" ;;
+    ui)     cmd_ui "$@" ;;
+    status) cmd_status "$@" ;;
+    help|-h|--help) cmd_help "$@" ;;
+    *) die "Unbekannter Befehl: $cmd (siehe: gaf help)" ;;
+  esac
+}
+
+main "$@"

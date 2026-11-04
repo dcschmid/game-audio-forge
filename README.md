@@ -1,132 +1,83 @@
 # Game Audio Forge
 
-Local-first, C++-powered AI audio production toolkit for game sound effects,
-instrumental music, sound libraries and engine-ready exports.
+Lokale KI-Audio-Werkstatt für Spiele: **Soundeffekte** und **instrumentale
+Musik** direkt im Terminal generieren. C++-First, keine eigenen
+Audio-Frameworks — bestehende spezialisierte C++-Generatoren werden genutzt.
 
-> **Status:** Milestone 2 — Audio Engines. The C++ layer (`gaf` CLI) builds
-> and runs; ACE-Step 1.5 (music) and MiDashengLM-Gen (SFX) generate locally on
-> CUDA, benchmarked on an 8 GB RTX 5070 Laptop. No UI yet. See
-> [ROADMAP.md](ROADMAP.md) and [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+```
+gaf music "aggressive metal racing track, fast tempo"
+gaf sfx   "kart engine revving, high pitch"
+gaf ui        # acestep.cpp Weboberfläche
+gaf status    # GPU, Binaries, Modelle
+gaf help
+```
 
-## What it is
+## Generatoren
 
-Game Audio Forge is a standalone application (not an extension of any game)
-that runs local AI audio models on your own GPU and turns them into
-production-ready game audio:
-
-- **Local AI sound-effect generation** — describe a sound, get a take.
-- **Local instrumental music production** — style prompt in, loop or track out.
-- **C++-first architecture** — native inference, no mandatory Python runtime.
-- **CUDA-first, backend-open** — NVIDIA CUDA preferred; Vulkan, ROCm and CPU
-  backends stay first-class options.
-- **One central sound & music library** — every take stored with its prompt,
-  model, seed and license.
-- **Independent project profiles** — one library per game or client.
-- **Reusable prompts & presets** — save and share generation recipes.
-- **Analysis & post-processing** — denoise, normalize, loudness, mastering basics.
-- **Loop creation & variant management** — extend, cover, repaint, split stems.
-- **Engine-agnostic exports** — Defold first, more engines later.
-- **MCP integration** — drive it from Claude Code and Codex.
-
-## Why C++ / audio.cpp
-
-The inference foundation is
-[audio.cpp](https://github.com/0xShug0/audio.cpp) (Apache-2.0), a pure C++/ggml
-runtime that already natively wraps the models this project targets:
-
-| Model | Task | License | Fits 8 GB VRAM |
+| Zweck | Generator | Modell | Lizenz |
 |---|---|---|---|
-| ACE-Step 1.5 | instrumental music | MIT | ✅ |
-| MiDashengLM-Gen | sound effects / ambience | Apache-2.0 | ✅ |
-| Stable Audio 3.0 (SFX + Music) | SFX, loops | Stability AI Community | ✅ |
-| ControlFoley | foley SFX | TBD | ✅ |
-| MiniMax Music 3 | songs w/ lyrics | MiniMax Community | ❌ (~10 GB) |
+| Musik | [acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp) | ACE-Step 1.5, Turbo DiT + 0.6B LM (Q8_0) | MIT (Runtime + Gewichte) |
+| Soundeffekte | [audiogen.cpp](https://github.com/audiohacking/audiogen.cpp) | Dasheng AudioGen (Q4) | ⚠️ Runtime ohne LICENSE-File — [Details](docs/LICENSES.md) |
 
-audio.cpp gives us CUDA/HIP/Vulkan/Metal/CPU backends, a CMake build with
-composite model sets, a native model manager, and a C ABI + server API — so
-Game Audio Forge stays a thin, native layer over a proven engine instead of
-re-implementing inference.
+Beide laufen auf **CUDA** (RTX 5070, sm_120). Keine parallele GPU-Generierung.
 
-**Soundbox** (MIT, TypeScript/Electron) is *not* a dependency. It is a
-product-shape reference: a UI + HTTP API + 24-tool MCP server that itself wraps
-audio.cpp. We borrow its ideas (profiles, license-before-download, MCP surface)
-and build our own native layer. See [ARCHITECTURE.md](ARCHITECTURE.md).
-
-## Repository layout
+## Aufbau
 
 ```
 game-audio-forge/
-├── src/            # our C++ code (thin layer over the audio.cpp engine)
-│   ├── gaf/        #   core library: config, http client, library
-│   └── gaf_cli.cpp #   the `gaf` CLI
-├── config/         # shipped default configuration (gaf.json)
-├── presets/        # reusable prompt & generation presets
-├── examples/       # example project profiles & metadata
-├── scripts/        # benchmark + helper scripts
-├── tests/          # unit tests
-├── docs/           # architecture, data layout, dependencies, benchmarks
-├── CMakeLists.txt  # builds the `gaf` CLI + tests
 ├── README.md
-├── ARCHITECTURE.md
-├── ROADMAP.md
-├── CONTRIBUTING.md
-└── CHANGELOG.md
+├── .gitignore
+├── scripts/
+│   ├── gaf              # CLI-Wrapper (music, sfx, ui, status, help)
+│   ├── gaf-env          # Build-/Laufzeit-Umgebung (CUDA, GCC 13, sentencepiece)
+│   └── setup-cuda.sh    # CUDA-Toolkit 12.8 user-space installieren
+├── config/
+│   └── gaf.json         # Pfade, Modelle, Parameter, FFmpeg
+├── presets/
+│   ├── music/           # Musik-Presets (Prompt + Parameter)
+│   └── sfx/             # SFX-Presets
+└── docs/
+    ├── SETUP.md         # Build-Anleitung (Fedora 44, CUDA, GCC 13)
+    └── LICENSES.md      # Lizenz-Prüfung (Runtime, Gewichte, Drittkomponenten)
 ```
 
-Large assets — model weights, GGUF files, sound libraries, generated audio,
-WAV/FLAC masters, temp inference data — live **outside** the repository in an
-XDG-compatible data directory. The prebuilt engine binary lives in `.tools/`
-(gitignored). See [docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md).
+**Externe Generatoren und Modellgewichte bleiben außerhalb des Repositories**
+(standardmäßig `~/dev/github/tools/`). Keine Gewichte, keine generierten
+Audio-Dateien im Git.
 
-## Getting started
+## Audio
 
-The `gaf` CLI is a thin client over the audio.cpp engine (a local HTTP server).
-Full setup is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md); in short:
+- Ausgabe: **WAV**, lesbare Dateinamen (`<Zeitstempel>_<Prompt-Slug>.wav`).
+- **Metadaten-Sidecar** (`<name>.meta.json`): Prompt, Seed, Generator,
+  Modell, Parameter, Zeitstempel.
+- **Keine Überschreibung** bestehender Dateien (Kollision → `-2`, `-3`, …).
+- **FFmpeg (optional):** resamplet/normalisiert (z. B. Dasheng 16 kHz → 48 kHz).
+- Ausgabe-Verzeichnis: `output/{music,sfx}/` (git-ignoriert).
 
-- Fedora 44 (or any recent Linux), GCC 13+, CMake, Ninja, FFmpeg
-- NVIDIA driver (the engine binary bundles the CUDA runtime — no toolkit needed)
+## Weboberfläche
 
-```bash
-# 1. Set up the engine (prebuilt CUDA binary + server) — see DEVELOPMENT.md
-# 2. Build our layer
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -GNinja
-cmake --build build -j
-ctest --test-dir build --output-on-failure
+`gaf ui` startet die vorhandene acestep.cpp-Weboberfläche
+(`http://127.0.0.1:8085`). Keine zusätzliche gemeinsame Oberfläche.
 
-# 3. Use it
-./build/gaf config init
-./build/gaf generate midashenglm_gen --text "door slam" --duration 3 --seed 42
-./build/gaf generate ace_step --text "dark ambient loop" --duration 24 --seed 7
-```
+## Setup
 
-## Data & privacy
+Kurz: [docs/SETUP.md](docs/SETUP.md). Kernpunkte:
 
-- No model weights or audio files are committed.
-- No telemetry, no accounts, no network calls except explicit model downloads.
-- Everything stays on your machine.
+1. CUDA Toolkit 12.8 (user-space, ohne sudo) — `scripts/setup-cuda.sh`.
+2. GCC 13 + sentencepiece via micromamba/conda-forge (Fedora 44 hat GCC 16,
+   mit dem nvcc nicht kompiliert).
+3. `source scripts/gaf-env` → beide Generatoren bauen.
+4. Modelle laden (`models.sh` / `make download-models-q4`).
+5. `gaf status`.
 
-## License
+## Lizenzen
 
-**Apache License 2.0** — see [LICENSE](LICENSE).
+**Wichtig:** Die Runtime von `audiogen.cpp` hat **kein LICENSE-File**
+(trotz Apache-2.0-Claim im README) → für kommerzielle Nutzung erst mit dem
+Autor klären. acestep.cpp (Runtime + Gewichte) ist sauber MIT.
+Details: [docs/LICENSES.md](docs/LICENSES.md).
 
-The project is currently **private**; open-source publication is deferred until
-the dependency and model-weight review is complete. The Apache-2.0 choice
-matches the primary dependency (audio.cpp) and includes a patent grant. Model
-weights keep their own licenses and are not redistributed by this project. See
-[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full license inventory.
+## Hardware
 
-## Roadmap
-
-- **M1 — Foundation** ✅: repo, architecture, dev environment, dependency
-  strategy, license (Apache-2.0), docs.
-- **M2 — Audio Engines** ✅: audio.cpp engine (server), ACE-Step 1.5 +
-  MiDashengLM-Gen generate on CUDA, GPU benchmarks, model management, `gaf`
-  CLI + CMake + unit tests.
-- **M3 — Audio Workspace** ✅: project profiles, per-profile sound library,
-  presets, generation orchestration (`--count` retakes) + automatic quality
-  control, 18 unit + integration tests.
-- **M4 — Processing & Export**: analysis, mastering basics, loops, variants,
-  Defold export.
-- **M5 — Automation**: MCP, batch generation, automated tests, agent workflows.
-
-Full detail in [ROADMAP.md](ROADMAP.md).
+Fedora Workstation 44, Framework Laptop 16, NVIDIA RTX 5070 Laptop (8 GB
+VRAM). VRAM-Budget und Einzel-Generatoren-Strategie: [docs/SETUP.md](docs/SETUP.md).

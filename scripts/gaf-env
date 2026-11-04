@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# gaf-env — lädt die Build-/Laufzeit-Umgebung für die GAF-Generatoren.
+#
+# Nutzung:
+#   source ~/dev/github/game-audio-forge/scripts/gaf-env
+#
+# Stellt bereit:
+#   - CUDA 12.8 Toolkit (user-space, ~/dev/github/tools/cuda/cuda-12.8)
+#   - GCC 13 (conda-forge, via micromamba) — nvcc braucht Host-Compiler <=15
+#   - sentencepiece (conda-forge) — für audiogen.cpp
+#
+# Hintergrund: Fedora 44 liefert GCC 16, mit dem nvcc (CUDA 12.8) nicht
+# kompiliert (char8_t-Fehler, vgl. acestep.cpp Issue #72). Deshalb GCC 13
+# aus conda-forge, sudo-frei.
+set -o allexport
+
+GAF_TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
+GAF_CUDA="$GAF_TOOLS/cuda/cuda-12.8"
+GAF_MAMBA_ROOT="${GAF_MAMBA_ROOT:-$HOME/.mamba}"
+GAF_MICROMAMBA="${GAF_MICROMAMBA:-/tmp/micromamba}"
+GAF_ENV_NAME="${GAF_ENV_NAME:-gaf}"
+
+# Fallback: micromamba woanders suchen
+if [[ ! -x "$GAF_MICROMAMBA" ]]; then
+  GAF_MICROMAMBA="$(command -v micromamba || true)"
+fi
+
+export MAMBA_ROOT_PREFIX="$GAF_MAMBA_ROOT"
+export PATH="$GAF_CUDA/bin:$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/bin:$PATH"
+export LD_LIBRARY_PATH="$GAF_CUDA/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export PKG_CONFIG_PATH="$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+# nvcc soll GCC 13 als Host-Compiler nehmen
+export NVCC_CCBIN="$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/bin/g++"
+
+set +o allexport
+
+# Sanity-Check (nur wenn interaktiv)
+if [[ -t 0 ]]; then
+  echo "[gaf-env] CUDA:  $GAF_CUDA"
+  echo "[gaf-env] nvcc:  $(command -v nvcc || echo FEHLT)"
+  echo "[gaf-env] g++:   $(g++ --version 2>/dev/null | head -1)"
+  echo "[gaf-env] spiece: $(pkg-config --modversion sentencepiece 2>/dev/null || echo FEHLT)"
+fi
