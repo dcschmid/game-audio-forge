@@ -103,10 +103,13 @@ ctest --test-dir build
 
 ## License
 
-**Not yet decided.** The project is intentionally private until the dependency
-and model-weight license review is complete. A `LICENSE` file will be added
-once the project license is chosen. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)
-for the current license inventory.
+**Apache License 2.0** — see [LICENSE](LICENSE).
+
+The project is currently **private**; open-source publication is deferred until
+the dependency and model-weight review is complete. The Apache-2.0 choice
+matches the primary dependency (audio.cpp) and includes a patent grant. Model
+weights keep their own licenses and are not redistributed by this project. See
+[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full license inventory.
 
 ## Roadmap
 

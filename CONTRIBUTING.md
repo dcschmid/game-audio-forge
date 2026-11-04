@@ -57,7 +57,6 @@ ctest --test-dir build
 
 ## License
 
-The project license is **not yet decided** (see
-[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)). Contributions are accepted under
-the understanding that the final license will be applied to the whole project.
-Do not add code under a different license without discussion.
+The project is licensed under **Apache License 2.0** (see
+[LICENSE](LICENSE)). Contributions are licensed under the same terms. Do not
+add code under a different license without discussion.

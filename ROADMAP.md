@@ -12,7 +12,8 @@ dependency strategy, license concept, documentation.
 - [x] Project architecture ([ARCHITECTURE.md](ARCHITECTURE.md))
 - [x] Development environment notes ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md))
 - [x] Dependency strategy ([docs/DEPENDENCIES.md](docs/DEPENDENCIES.md))
-- [x] License concept ([docs/DEPENDENCIES.md#license-concept](docs/DEPENDENCIES.md))
+- [x] License concept + decision: **Apache-2.0** ([LICENSE](LICENSE),
+  [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md))
 - [x] Data layout contract ([docs/DATA-LAYOUT.md](docs/DATA-LAYOUT.md))
 - [x] Default configuration ([config/gaf.toml](config/gaf.toml))
 - [x] CI (lint + secret scan + unit-test skeleton)
@@ -81,8 +82,7 @@ via MCP, and batch jobs run unattended.
 
 ## Open decisions
 
-- **Project license** — chosen after the dependency/model-weight review
-  (see [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)).
 - **In-process vs server** integration with audio.cpp — decided in M2.
 - **Native UI** — optional, later; Soundbox is the product-shape reference.
-- **Open-source publication** — deferred until the license review is complete.
+- **Open-source publication** — deferred until the dependency/model-weight
+  review is complete. (Project license is set: Apache-2.0.)

@@ -21,6 +21,7 @@
 - CI (`.github/workflows/ci.yml`): config validation, secret scan (gitleaks),
   repo hygiene (no weights/audio/home-paths), test skeleton.
 - `.gitignore` + `.editorconfig`.
+- `LICENSE` — Apache License 2.0 (project license decided 2026-11-04).
 
 ## Key architectural decision
 
@@ -41,12 +42,10 @@ dependency (LGPL, dynamic link).
 
 ## Open decisions (need user input)
 
-1. **Project license** — not set yet. Recommendation: **Apache-2.0** (matches
-   audio.cpp, includes a patent grant, conventional for a permissive C++
-   toolkit). Confirm before adding a `LICENSE` file.
-2. **In-process vs server** integration with audio.cpp — to be decided in M2
+1. **In-process vs server** integration with audio.cpp — to be decided in M2
    after a build test.
-3. **Open-source publication** — deferred until the license review is complete.
+2. **Open-source publication** — deferred until the dependency/model-weight
+   review is complete. (Project license is set: **Apache-2.0**.)
 
 ## GitHub state
 
@@ -79,5 +78,6 @@ dependency (LGPL, dynamic link).
 4. Implement the model registry + on-demand download + license display.
 5. Decide in-process vs server integration.
 
-**Before M2, decide the project license** (open decision #1) so the `LICENSE`
-file and open-source publication can proceed.
+**Before M2:** the project license is set (Apache-2.0). The remaining
+pre-M2 item is the dependency/model-weight review that gates open-source
+publication.

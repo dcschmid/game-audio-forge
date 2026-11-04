@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Milestone 1 — Foundation: repository, architecture, dependency strategy,
   data layout, default configuration, CI, and documentation.
+- `LICENSE` — Apache License 2.0 (project license decided 2026-11-04).
 - `config/gaf.toml` — shipped default configuration (engine, backends, model
   registry, profiles, export, processing).
 - `docs/` — ARCHITECTURE, DATA-LAYOUT, DEPENDENCIES, DEVELOPMENT.
@@ -18,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - No model weights or audio files are committed.
-- Project license is intentionally not set yet; it will be added after the
-  dependency and model-weight license review.
+- Project license is **Apache-2.0**. Open-source publication is deferred until
+  the dependency and model-weight review is complete.
 
 ## [0.1.0] - 2026-11-04
 

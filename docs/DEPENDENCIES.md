@@ -51,11 +51,11 @@ needed — audio.cpp's `ace_step` family is the maintained path.
 
 ## License inventory
 
-### Our code (project license: TBD)
+### Our code (project license: Apache-2.0)
 
 The Game Audio Forge product layer (`src/`, `config/`, `presets/`, `scripts/`,
-`tests/`, `docs/`) is our own code. Its license is **not yet decided** — see
-[License concept](#license-concept) below.
+`tests/`, `docs/`) is our own code, licensed under **Apache License 2.0**
+(see [`LICENSE`](../LICENSE)). This was decided on 2026-11-04.
 
 ### Dependencies we link against
 
@@ -82,10 +82,12 @@ weights. Per-model license (from audio.cpp / Soundbox model tables):
 > each license before download and records it per take. This is a summary, not
 > legal advice — read each license before shipping generated audio.
 
-## License concept (open decision)
+## License decision
 
-The project is **private** until this review is complete. When choosing the
-project license, the constraints are:
+**Project license: Apache License 2.0** (decided 2026-11-04; see
+[`LICENSE`](../LICENSE)).
+
+The constraints that drove the choice:
 
 1. **Compatibility with Apache-2.0** (audio.cpp) — the project license must
    allow linking against and distributing with an Apache-2.0 dependency.
@@ -96,24 +98,17 @@ project license, the constraints are:
 3. **Model-weight licenses are separate** and do not constrain the project
    license (we don't redistribute weights), but they constrain *commercial use
    of generated audio* for the conditional models.
-4. **Open-source publication** is deferred until (1)–(3) are settled.
+4. **Open-source publication** is deferred until the dependency/model-weight
+   review is complete (the license itself is set).
 
-**Candidate project licenses** (to decide after review):
-
-- **MIT** — maximally permissive, simplest. Good if we want broad reuse.
-- **Apache-2.0** — permissive + patent grant, matches audio.cpp. Good default
-  for a C++ project with a permissive dependency.
-- **GPL-3.0** — copyleft; would require the whole combined work to be GPL.
-  Only if we want strong copyleft.
-
-**Recommendation (pending user decision):** **Apache-2.0** for the project
-license — it matches the primary dependency, includes a patent grant, and is
-the conventional choice for a permissive C++ toolkit. Confirm before adding a
-`LICENSE` file.
+**Why Apache-2.0:** it matches the primary dependency (audio.cpp), includes a
+patent grant, and is the conventional choice for a permissive C++ toolkit.
+Alternatives considered: MIT (max permissive, no patent grant) and GPL-3.0
+(strong copyleft, would require the whole combined work to be GPL).
 
 ## What we will NOT do
 
 - Copy audio.cpp, Soundbox, or any model repo's source into this repository.
 - Commit model weights or large audio files.
 - Statically link FFmpeg or enable GPL-only components without review.
-- Add a `LICENSE` file until the project license is explicitly chosen.
+- Redistribute model weights (they keep their own licenses).
