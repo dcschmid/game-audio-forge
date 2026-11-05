@@ -2,12 +2,12 @@
 #
 # gaf — Game Audio Forge CLI
 #
-# Local audio workshop: music (acestep.cpp) + sound effects (audiogen.cpp).
-# C++-First, keine eigenen Dienste. Uses the generators' existing CLI/HTTP interfaces.
+# Local audio workshop: music (acestep.cpp) + sound effects (sa3.cpp).
+# C++-first, no own services. Uses the generators' existing CLI/HTTP interfaces.
 #
 # Befehle:
 #   gaf music "prompt"   generate instrumental music (ACE-Step 1.5, SFT DiT)
-#   gaf sfx "prompt"     Soundeffekt generieren (Dasheng AudioGen)
+#   gaf sfx "prompt"     generate a sound effect (sa3.cpp, Stable Audio 3)
 #   gaf ui               start the acestep.cpp web interface
 #   gaf status           show GPU, binaries, models, FFmpeg
 #   gaf help             this help
@@ -40,15 +40,19 @@ TOOLS_ROOT="$(cfg tools_root "$HOME/dev/github/tools")"
 OUTPUT_ROOT="$(cfg output_root "$GAF_HOME/output")"
 
 MUSIC_REPO="$TOOLS_ROOT/acestep.cpp"
-SFX_REPO="$TOOLS_ROOT/audiogen.cpp"
+SFX_REPO="$TOOLS_ROOT/sa3.cpp"
 
 MUSIC_BIN_LM="$MUSIC_REPO/build/ace-lm"
 MUSIC_BIN_SYNTH="$MUSIC_REPO/build/ace-synth"
 MUSIC_BIN_SERVER="$MUSIC_REPO/build/ace-server"
 MUSIC_MODELS="$MUSIC_REPO/models"
 
-SFX_BIN="$SFX_REPO/build-cuda/dasheng-audiogen"
+SFX_BIN="$SFX_REPO/build-cuda/bin/sa3-generate"
 SFX_MODELS="$SFX_REPO/models"
+# legacy backend (Dasheng AudioGen via audiogen.cpp, runtime unlicensed)
+SFX_DASHENG_REPO="$TOOLS_ROOT/audiogen.cpp"
+SFX_DASHENG_BIN="$SFX_DASHENG_REPO/build-cuda/dasheng-audiogen"
+SFX_DASHENG_MODELS="$SFX_DASHENG_REPO/models"
 
 # ---------------------------------------------------------------------------
 # Hilfsfunktionen
@@ -116,11 +120,11 @@ finalize_audio() {
 
 # GPU busy check (no parallel GPU generation).
 # "busy" = another GAF generator process runs (ace-lm, ace-synth,
-# dasheng-audiogen). Deliberately NOT nvidia-smi compute apps: the Wayland
+# sa3-generate, dasheng-audiogen). Deliberately NOT nvidia-smi compute apps: the Wayland
 # compositor (kwin_wayland) and idle services (e.g. local-image-ai sd-server)
 # keep the GPU "busy" forever and would block the wait loop forever.
 gpu_busy() {
-  pgrep -f 'ace-lm|ace-synth|dasheng-audiogen' >/dev/null 2>&1
+  pgrep -f 'ace-lm|ace-synth|sa3-generate|dasheng-audiogen' >/dev/null 2>&1
 }
 
 # ---------------------------------------------------------------------------
@@ -337,28 +341,46 @@ cmd_music() {
 cmd_sfx() {
   local prompt="${1:-}"
   [[ -z "$prompt" ]] && die "gaf sfx: prompt missing. Example: gaf sfx \"kart engine revving\""
+  shift
 
-  [[ -x "$SFX_BIN" ]]    || die "dasheng-audiogen not found: $SFX_BIN (make cuda missing?)"
-  [[ -d "$SFX_MODELS" ]] || die "models not found: $SFX_MODELS (run make download-models-q4?)"
+  # backend: sa3 (default, MIT runtime + Community weights, 44.1 kHz stereo)
+  #          dasheng (legacy, Apache weights, 16 kHz mono, runtime unlicensed)
+  local backend steps duration cfg device encoding
+  backend="$(cfg sfx.backend sa3)"
+  steps="$(cfg sfx.steps 8)"
+  duration="$(cfg sfx.duration 5)"
+  cfg="$(cfg sfx.cfg 5.0)"
+  device="$(cfg sfx.device CUDA0)"
 
-  # all four model files must exist.
-  local f
-  for f in t5_encoder.gguf dit.gguf vocoder.gguf spiece.model; do
-    [[ -f "$SFX_MODELS/$f" ]] || die "model file missing: $SFX_MODELS/$f"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --backend)   backend="${2:-sa3}"; shift 2 ;;
+      --duration)  duration="${2:-$duration}"; shift 2 ;;
+      --steps)     steps="${2:-$steps}"; shift 2 ;;
+      --cfg)       cfg="${2:-$cfg}"; shift 2 ;;
+      *) die "gaf sfx: unknown option: $1" ;;
+    esac
   done
+  [[ "$backend" == sa3 || "$backend" == dasheng ]] \
+    || die "gaf sfx: unknown backend: $backend (sa3|dasheng)"
+
+  if [[ "$backend" == sa3 ]]; then
+    encoding="$(cfg sfx.encoding q8_0)"
+    [[ -x "$SFX_BIN" ]]    || die "sa3-generate not found: $SFX_BIN (run scripts/setup.sh)"
+    [[ -d "$SFX_MODELS" ]] || die "models not found: $SFX_MODELS (run scripts/setup.sh)"
+  else
+    [[ -x "$SFX_DASHENG_BIN" ]]    || die "dasheng-audiogen not found: $SFX_DASHENG_BIN (run scripts/setup.sh)"
+    [[ -d "$SFX_DASHENG_MODELS" ]] || die "models not found: $SFX_DASHENG_MODELS (run scripts/setup.sh)"
+    for f in t5_encoder.gguf dit.gguf vocoder.gguf spiece.model; do
+      [[ -f "$SFX_DASHENG_MODELS/$f" ]] || die "model file missing: $SFX_DASHENG_MODELS/$f"
+    done
+  fi
 
   if gpu_busy; then
     warn "GPU busy — waiting until free (no parallel generation)…"
     while gpu_busy; do sleep 5; done
     log "GPU free."
   fi
-
-  local steps duration cfg sway device
-  steps="$(cfg sfx.steps 25)"
-  duration="$(cfg sfx.duration 5)"
-  cfg="$(cfg sfx.cfg 5.0)"
-  sway="$(cfg sfx.sway -1.0)"
-  device="$(cfg sfx.device CUDA0)"
 
   local seed
   seed="$(date +%s%N | cut -c1-10)"
@@ -372,41 +394,62 @@ cmd_sfx() {
   local target
   target="$(unique_path "$outdir" "${ts}_${slug}" "wav")"
 
-  log "generating SFX: \"$prompt\""
+  log "generating SFX ($backend): \"$prompt\""
   log "  steps=$steps  duration=${duration}s  cfg=$cfg  seed=$seed"
 
-  "$SFX_BIN" \
-    "$SFX_MODELS/t5_encoder.gguf" \
-    "$SFX_MODELS/dit.gguf" \
-    "$SFX_MODELS/vocoder.gguf" \
-    "$SFX_MODELS/spiece.model" \
-    --caption "$prompt" \
-    --steps "$steps" \
-    --duration "$duration" \
-    --cfg "$cfg" \
-    --sway "$sway" \
-    --seed "$seed" \
-    --output "$target"
+  local generator rate channels note
+  if [[ "$backend" == sa3 ]]; then
+    LD_LIBRARY_PATH="$SFX_REPO/build-cuda${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$SFX_BIN" \
+      --model small-sfx \
+      --models-dir "$SFX_MODELS" \
+      --encoding "$encoding" \
+      --prompt "$prompt" \
+      --duration "$duration" \
+      --steps "$steps" \
+      --cfg-scale "$cfg" \
+      --seed "$seed" \
+      --out "$target" \
+      || die "sa3-generate failed"
+    generator="sa3.cpp (Stable Audio 3 Small SFX, ${encoding})"
+    rate=44100; channels=2
+    note="Stable Audio 3 Small SFX: native 44.1 kHz stereo. Weights: Stability AI Community License (commercial <USD 1M/yr revenue); runtime sa3.cpp MIT."
+  else
+    "$SFX_DASHENG_BIN" \
+      "$SFX_DASHENG_MODELS/t5_encoder.gguf" \
+      "$SFX_DASHENG_MODELS/dit.gguf" \
+      "$SFX_DASHENG_MODELS/vocoder.gguf" \
+      "$SFX_DASHENG_MODELS/spiece.model" \
+      --caption "$prompt" \
+      --steps "$steps" \
+      --duration "$duration" \
+      --cfg "$cfg" \
+      --seed "$seed" \
+      --output "$target" \
+      || die "dasheng-audiogen failed"
+    generator="audiogen.cpp (Dasheng AudioGen)"
+    rate=16000; channels=1
+    note="Dasheng original is 16 kHz mono; resampled via FFmpeg when needed."
+  fi
 
-  # source: 16 kHz mono. transcode only on real format/rate change.
+  # normalize only on real format/rate change (sa3: already 44.1k stereo)
   local before="$target"
-  target="$(finalize_audio "$target" 16000 1)"
-  [[ "$target" != "$before" ]] && log "  FFmpeg: $(basename "$target") (Dasheng-Original: 16 kHz Mono)"
+  target="$(finalize_audio "$target" "$rate" "$channels")"
+  [[ "$target" != "$before" ]] && log "  FFmpeg: $(basename "$target")"
 
   write_meta "$target" \
     --arg prompt "$prompt" \
     --argjson seed "$seed" \
-    --arg generator "audiogen.cpp (Dasheng AudioGen)" \
+    --arg generator "$generator" \
     --argjson steps "$steps" \
     --argjson duration "$duration" \
     --argjson cfg "$cfg" \
-    --argjson sway "$sway" \
     --arg device "$device" \
     --arg created "$(date -Iseconds)" \
     --arg f "$(basename "$target")" \
+    --arg note "$note" \
     '{prompt:$prompt, seed:$seed, generator:$generator, steps:$steps, duration_s:$duration,
-      cfg:$cfg, sway:$sway, device:$device, created:$created, file:$f,
-      note:"Dasheng-Original ist 16 kHz Mono; ggf. per FFmpeg resampled."}'
+      cfg:$cfg, device:$device, created:$created, file:$f, note:$note}'
 
   log "SFX done: $target"
   log "  metadata: ${target%.*}.meta.json"
@@ -424,7 +467,7 @@ cmd_ui() {
   port="$(cfg ui.port 8085)"
 
   log "starting acestep.cpp web interface: http://$host:$port"
-  log "  (Strg+C zum Beenden)"
+  log "  (Ctrl+C to stop)"
   exec "$MUSIC_BIN_SERVER" \
     --host "$host" \
     --port "$port" \
@@ -445,11 +488,13 @@ cmd_status() {
   _bin "ace-lm"    "$MUSIC_BIN_LM"
   _bin "ace-synth" "$MUSIC_BIN_SYNTH"
   _bin "ace-server" "$MUSIC_BIN_SERVER"
-  _bin "dasheng-audiogen" "$SFX_BIN"
+  _bin "sa3-generate"    "$SFX_BIN"
+  _bin "dasheng-audiogen" "$SFX_DASHENG_BIN"
   echo
   echo "=== Models ==="
   _dir "ACE-Step (music)" "$MUSIC_MODELS"
-  _dir "Dasheng (sfx)"    "$SFX_MODELS"
+  _dir "SA3 (sfx)"        "$SFX_MODELS"
+  _dir "Dasheng (sfx legacy)" "$SFX_DASHENG_MODELS"
   echo
   echo "=== FFmpeg ==="
   if command -v ffmpeg >/dev/null 2>&1; then
@@ -458,7 +503,7 @@ cmd_status() {
     echo "  ffmpeg: not installed (optional, for OGG/FLAC/resample)"
   fi
   echo
-  echo "=== Konfiguration ==="
+  echo "=== Configuration ==="
   echo "  tools_root:  $TOOLS_ROOT"
   echo "  output_root: $OUTPUT_ROOT"
 }
@@ -490,7 +535,7 @@ gaf — Game Audio Forge CLI
 
 Usage:
   gaf music "prompt" [options]    instrumental music (ACE-Step 1.5, SFT DiT, CUDA)
-  gaf sfx "prompt"                sound effect (Dasheng AudioGen, CUDA)
+  gaf sfx "prompt" [opts]         sound effect (sa3.cpp: Stable Audio 3, CUDA)
   gaf ui                          start the acestep.cpp web interface (http://127.0.0.1:8085)
   gaf status                      show GPU, binaries, models, FFmpeg
   gaf help                        this help
@@ -508,25 +553,30 @@ music options (CLI > config/gaf.json):
   --from S --to S    second boundaries for repaint
   --ref AUDIO        timbre reference (any mode)
 
+sfx options (CLI > config/gaf.json):
+  --backend sa3|dasheng  sa3: 44.1 kHz stereo (default) · dasheng: legacy 16 kHz
+  --duration N           seconds · --steps N · --cfg F
 further parameters via config/gaf.json:
   music.keyscale/timesignature/vocal_language, music.lm_temperature/lm_cfg_scale/
   lm_top_p/lm_top_k, music.use_cot_caption (false = caption verbatim to DiT),
   music.solver (euler|sde|dpm3m|stork4), music.peak_clip (Loudness dB),
   music.vae_chunk (VAE tile size, VRAM lever for long tracks),
-  sfx.steps/sfx.duration/sfx.cfg/sfx.sway,
+  sfx.backend/sfx.encoding/sfx.steps/sfx.duration/sfx.cfg,
   ffmpeg.enabled/ffmpeg.target_format/ffmpeg.target_rate
 
 Examples:
   gaf music "aggressive metal racing track, fast tempo" --bpm 160 --duration 64
   gaf music "jazz piano cover" --cover output/music/song.wav --cover-strength 0.8
   gaf music "fix intro" --repaint song.wav --from 0 --to 8
-  gaf sfx "kart engine revving, high pitch"
+  gaf sfx "kart engine revving, high pitch" --duration 4
+  gaf sfx "rain on pavement" --backend dasheng   # legacy 16 kHz mono
 
 Notes:
   - output: WAV, readable names, .meta.json sidecar with prompt+seed.
   - existing files are never overwritten (collision → -2, -3, …).
   - no parallel GPU generation: gaf waits until the GPU is free.
-  - Dasheng outputs 16 kHz mono; FFmpeg optionally resamples to 48 kHz.
+  - SFX default sa3.cpp: 44.1 kHz stereo (MIT runtime, Community weights);
+    --backend dasheng: 16 kHz mono (runtime unlicensed — see docs/LICENSES.md).
   - lego/extract/complete (stem modes) need the base model — unavailable with turbo/sft.
 EOF
 }

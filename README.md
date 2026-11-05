@@ -19,12 +19,14 @@ lifting, a thin `gaf` wrapper makes them pleasant to use.
 | | Generator | Model | License |
 |---|---|---|---|
 | **Music** | [acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp) | ACE-Step 1.5, SFT DiT + 0.6B LM (Q8_0) | MIT — runtime *and* weights, commercial use explicitly fine |
-| **Sound effects** | [audiogen.cpp](https://github.com/audiohacking/audiogen.cpp) | Dasheng AudioGen (Q4) | ⚠️ runtime has **no LICENSE file** — see [docs/LICENSES.md](docs/LICENSES.md) |
+| **Sound effects** | [sa3.cpp](https://github.com/betweentwomidnights/sa3.cpp) | Stable Audio 3 Small SFX (Q8_0), 44.1 kHz stereo | runtime MIT; weights Stability Community License (free commercial < $1M/yr) |
 
 Both build against **CUDA** (RTX 5070 Laptop, 8 GB) and never run on the GPU
-at the same time — `gaf` queues them for you.
+at the same time — `gaf` queues them for you. `gaf sfx --backend dasheng`
+switches to the legacy 16 kHz Dasheng chain (Apache-2.0 weights, runtime
+unlicensed — see docs).
 
-A 30-second music track is generated in about **9 seconds** at ~4.5 GB VRAM.
+A 30-second music track takes ~**9 s** at ~4.5 GB VRAM, a 5-second SFX ~**2 s**.
 Full measurements in [docs/PROMPTING.md](docs/PROMPTING.md).
 
 ## Repository layout
@@ -85,7 +87,7 @@ bash scripts/gaf-serve-install.sh --remove   # uninstall
 - a **`.meta.json` sidecar** with prompt, seed and every parameter — so a
   track is reproducible days later
 - existing files are **never overwritten** (collisions become `-2`, `-3`, …)
-- optional **FFmpeg** normalisation (e.g. Dasheng's 16 kHz → 48 kHz)
+- optional **FFmpeg** normalisation (`ffmpeg.target_rate`, e.g. → 48 kHz)
 - output directory: `output/{music,sfx}/` (git-ignored)
 
 ## Quality gate
@@ -103,11 +105,11 @@ python3 scripts/gaf-quality.py output/music/some-track.wav
 ## Licensing — read before shipping
 
 Music is clean: acestep.cpp and all ACE-Step weights are MIT, commercial use
-explicitly allowed. **audiogen.cpp is the exception**: its README claims
-Apache-2.0, but the repository contains no LICENSE file — which legally means
-"all rights reserved". The Dasheng *weights* are properly Apache-2.0; only the
-runtime code needs clarification with the author before it ends up in a
-commercial game. Details and contacts: [docs/LICENSES.md](docs/LICENSES.md).
+explicitly allowed. SFX default (sa3.cpp) is MIT runtime; the Stable Audio 3
+weights are **free for commercial use under $1M annual revenue** (attribution
+plus registration above that). The legacy Dasheng chain has Apache-2.0 weights
+but its **runtime repo has no LICENSE file** — keep it out of commercial
+builds unless clarified. Details: [docs/LICENSES.md](docs/LICENSES.md).
 
 ## Target hardware
 

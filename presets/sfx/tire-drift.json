@@ -3,5 +3,5 @@
   "type": "sfx",
   "prompt": "Car tire drifting on dry asphalt, loud rubber screech and squeal, sliding sideways, racing drift",
   "duration": 4,
-  "notes": "Test 3: Reifen-Drift-Sound. Dasheng AudioGen Q4."
+  "notes": "sa3.cpp default (44.1 kHz stereo); --backend dasheng = legacy 16 kHz."
 }

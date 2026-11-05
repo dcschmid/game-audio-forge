@@ -3,5 +3,5 @@
   "type": "sfx",
   "prompt": "Go-kart engine revving, small four-stroke piston engine, high pitch, accelerating from idle to full throttle",
   "duration": 4,
-  "notes": "Test 2: Kart-Motorsound. Dasheng AudioGen Q4."
+  "notes": "sa3.cpp default (44.1 kHz stereo); --backend dasheng = legacy 16 kHz."
 }

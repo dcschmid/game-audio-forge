@@ -3,5 +3,5 @@
   "type": "sfx",
   "prompt": "Heavy rain falling on pavement, steady rainfall ambience, water droplets, wet street",
   "duration": 6,
-  "notes": "Test 4: Regeneffekt. Dasheng AudioGen Q4."
+  "notes": "sa3.cpp default (44.1 kHz stereo); --backend dasheng = legacy 16 kHz."
 }

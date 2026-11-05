@@ -24,12 +24,13 @@
     "peak_clip": 10
   },
   "sfx": {
-    "repo": "audiogen.cpp",
+    "repo": "sa3.cpp",
     "model_dir": "models",
-    "steps": 25,
+    "backend": "sa3",
+    "encoding": "q8_0",
+    "steps": 8,
     "duration": 5,
     "cfg": 5.0,
-    "sway": -1.0,
     "device": "CUDA0"
   },
   "ui": {

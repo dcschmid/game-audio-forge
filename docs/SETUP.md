@@ -83,7 +83,22 @@ cmake --build . -j "$(nproc)"
 
 Binaries: `build/{ace-lm,ace-synth,ace-server,ace-understand,neural-codec,mp3-codec,quantize}`.
 
-## 5. Build audiogen.cpp (SFX)
+## 5. Build sa3.cpp (SFX, default backend)
+
+```bash
+cd ~/dev/github/tools/sa3.cpp
+cmake -B build-cuda -S . -DCMAKE_BUILD_TYPE=Release -DSA3_CUDA=ON \
+  -DCMAKE_CUDA_COMPILER="$GAF_CUDA/bin/nvcc" \
+  -DCMAKE_CUDA_ARCHITECTURES="120a-real"
+cmake --build build-cuda --parallel
+```
+
+Binary: `build-cuda/bin/sa3-generate` (shared `libsa3.so` → run with
+`build-cuda` on `LD_LIBRARY_PATH`; `gaf` does this itself). sa3.cpp's CMake
+adds `120a-real` automatically on CUDA ≥ 12.8. One test target may fail to
+link while every CLI binary builds — `gaf` only needs the CLI.
+
+Legacy backend (optional, `--backend dasheng`):
 
 ```bash
 cd ~/dev/github/tools/audiogen.cpp
@@ -107,7 +122,11 @@ for f in vae-BF16.gguf Qwen3-Embedding-0.6B-Q8_0.gguf \
   hf download --quiet Serveurperso/ACE-Step-1.5-GGUF "$f" --local-dir models
 done
 
-# SFX: Dasheng AudioGen Q4 (~2.8 GB)
+# SFX default: Stable Audio 3 small-sfx Q8 GGUF (~2.6 GB)
+cd ~/dev/github/tools/sa3.cpp
+./models.sh --variant small-sfx --encoding q8_0
+
+# SFX legacy: Dasheng AudioGen Q4 (~2.8 GB)
 cd ~/dev/github/tools/audiogen.cpp
 make download-models-q4
 ```
@@ -124,7 +143,8 @@ scripts/gaf-test.sh   # 7 deterministic generations, ~70 s, 7/7
 | Generator | Weights on disk | Resident VRAM |
 |---|---|---|
 | acestep.cpp | SFT DiT Q8_0 2.4 GB + 0.6B LM Q8_0 0.7 GB + text-enc 0.7 GB + VAE 0.3 GB ≈ 4.1 GB | ~4.5 GB peak (module-by-module eviction) |
-| audiogen.cpp | T5 F32 1.4 GB + DiT Q4 1.2 GB + vocoder 0.3 GB ≈ 2.9 GB | ~1.8 GB peak |
+| sa3.cpp (small-sfx Q8) | DiT 0.5B Q8_0 1.7 GB + SAME-S F32 0.4 GB + T5Gemma F16 0.5 GB ≈ 2.6 GB | ~2.5 GB peak |
+| audiogen.cpp (legacy) | T5 F32 1.4 GB + DiT Q4 1.2 GB + vocoder 0.3 GB ≈ 2.9 GB | ~1.8 GB peak |
 
 Each fits comfortably on its own. **Never run them in parallel** — `gaf`
 queues generator processes for you. Measured: a 30 s track takes ~9 s wall
