@@ -4,9 +4,9 @@
   "music": {
     "repo": "acestep.cpp",
     "lm_model": "acestep-5Hz-lm-0.6B-Q8_0.gguf",
-    "synth_model": "acestep-v15-turbo-Q8_0.gguf",
-    "inference_steps": 8,
-    "shift": 3.0,
+    "synth_model": "acestep-v15-sft-Q8_0.gguf",
+    "inference_steps": 0,
+    "shift": 0.0,
     "duration": 32,
     "vae_chunk": 512,
     "output_format": "wav16",
