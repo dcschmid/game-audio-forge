@@ -17,12 +17,16 @@ set -o allexport
 GAF_TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
 GAF_CUDA="$GAF_TOOLS/cuda/cuda-12.8"
 GAF_MAMBA_ROOT="${GAF_MAMBA_ROOT:-$HOME/.mamba}"
-GAF_MICROMAMBA="${GAF_MICROMAMBA:-/tmp/micromamba}"
+GAF_MICROMAMBA="${GAF_MICROMAMBA:-$HOME/.local/bin/micromamba}"
 GAF_ENV_NAME="${GAF_ENV_NAME:-gaf}"
 
 # Fallback: micromamba woanders suchen
 if [[ ! -x "$GAF_MICROMAMBA" ]]; then
   GAF_MICROMAMBA="$(command -v micromamba || true)"
+fi
+# nvcc: GAF-CUDA bevorzugen, sonst Systempfad
+if [[ ! -x "$GAF_CUDA/bin/nvcc" ]]; then
+  GAF_CUDA="${CUDA_PATH:-/usr/local/cuda}"
 fi
 
 export MAMBA_ROOT_PREFIX="$GAF_MAMBA_ROOT"

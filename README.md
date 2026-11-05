@@ -30,7 +30,11 @@ game-audio-forge/
 ├── scripts/
 │   ├── gaf              # CLI-Wrapper (music, sfx, ui, status, help)
 │   ├── gaf-env          # Build-/Laufzeit-Umgebung (CUDA, GCC 13, sentencepiece)
-│   └── setup-cuda.sh    # CUDA-Toolkit 12.8 user-space installieren
+│   ├── setup.sh         # One-Click-Setup (idempotent, ohne sudo)
+│   ├── setup-cuda.sh    # CUDA-Toolkit 12.8 user-space installieren
+│   ├── gaf-test.sh      # Quality-Gate (7 Fälle, ~70 s)
+│   ├── gaf-quality.py   # BPM/RMS/HF/Corr-Analyse (stdlib + ffmpeg)
+│   └── gaf-serve-install.sh  # UI als systemd-user-Dienst (Autostart)
 ├── config/
 │   └── gaf.json         # Pfade, Modelle, Parameter, FFmpeg
 ├── presets/
@@ -61,7 +65,17 @@ Audio-Dateien im Git.
 
 ## Setup
 
-Kurz: [docs/SETUP.md](docs/SETUP.md). Kernpunkte:
+**One-Click:** `bash scripts/setup.sh` (idempotent, ohne sudo — micromamba,
+CUDA 12.8, beide Builds, Modelle, Smoke-Test). Details: [docs/SETUP.md](docs/SETUP.md).
+
+**UI-Dienst** (Hintergrund, Reboot-fest via systemd-user + linger):
+`bash scripts/gaf-serve-install.sh` → http://127.0.0.1:8085,
+Entfernen: `--remove`.
+
+**Quality-Gate:** `scripts/gaf-test.sh` (7 deterministische Fälle mit
+objektiver Messung) · Prompting-Praxis: [docs/PROMPTING.md](docs/PROMPTING.md).
+
+Kernpunkte:
 
 1. CUDA Toolkit 12.8 (user-space, ohne sudo) — `scripts/setup-cuda.sh`.
 2. GCC 13 + sentencepiece via micromamba/conda-forge (Fedora 44 hat GCC 16,
