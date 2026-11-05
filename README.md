@@ -1,97 +1,116 @@
 # Game Audio Forge
 
-Lokale KI-Audio-Werkstatt für Spiele: **Soundeffekte** und **instrumentale
-Musik** direkt im Terminal generieren. C++-First, keine eigenen
-Audio-Frameworks — bestehende spezialisierte C++-Generatoren werden genutzt.
+Your local audio workshop for game development. Music and sound effects,
+generated on your own GPU, driven entirely from the terminal — no cloud, no
+subscriptions, no audio framework of your own to maintain.
 
+```bash
+gaf music "aggressive metal racing track, galloping guitars, double-kick drums"
+gaf sfx "go-kart engine revving, small four-stroke piston, high pitch"
+gaf ui        # the acestep.cpp web interface on http://127.0.0.1:8085
+gaf status    # GPU, binaries, models at a glance
 ```
-gaf music "aggressive metal racing track, fast tempo"
-gaf sfx   "kart engine revving, high pitch"
-gaf ui        # acestep.cpp Weboberfläche
-gaf status    # GPU, Binaries, Modelle
-gaf help
-```
 
-## Generatoren
+The idea is small on purpose: two specialised C++ generators do the heavy
+lifting, a thin `gaf` wrapper makes them pleasant to use.
 
-| Zweck | Generator | Modell | Lizenz |
+## What runs under the hood
+
+| | Generator | Model | License |
 |---|---|---|---|
-| Musik | [acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp) | ACE-Step 1.5, Turbo DiT + 0.6B LM (Q8_0) | MIT (Runtime + Gewichte) |
-| Soundeffekte | [audiogen.cpp](https://github.com/audiohacking/audiogen.cpp) | Dasheng AudioGen (Q4) | ⚠️ Runtime ohne LICENSE-File — [Details](docs/LICENSES.md) |
+| **Music** | [acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp) | ACE-Step 1.5, SFT DiT + 0.6B LM (Q8_0) | MIT — runtime *and* weights, commercial use explicitly fine |
+| **Sound effects** | [audiogen.cpp](https://github.com/audiohacking/audiogen.cpp) | Dasheng AudioGen (Q4) | ⚠️ runtime has **no LICENSE file** — see [docs/LICENSES.md](docs/LICENSES.md) |
 
-Beide laufen auf **CUDA** (RTX 5070, sm_120). Keine parallele GPU-Generierung.
+Both build against **CUDA** (RTX 5070 Laptop, 8 GB) and never run on the GPU
+at the same time — `gaf` queues them for you.
 
-## Aufbau
+A 30-second music track is generated in about **9 seconds** at ~4.5 GB VRAM.
+Full measurements in [docs/PROMPTING.md](docs/PROMPTING.md).
+
+## Repository layout
 
 ```
 game-audio-forge/
 ├── README.md
 ├── .gitignore
 ├── scripts/
-│   ├── gaf              # CLI-Wrapper (music, sfx, ui, status, help)
-│   ├── gaf-env          # Build-/Laufzeit-Umgebung (CUDA, GCC 13, sentencepiece)
-│   ├── setup.sh         # One-Click-Setup (idempotent, ohne sudo)
-│   ├── setup-cuda.sh    # CUDA-Toolkit 12.8 user-space installieren
-│   ├── gaf-test.sh      # Quality-Gate (7 Fälle, ~70 s)
-│   ├── gaf-quality.py   # BPM/RMS/HF/Corr-Analyse (stdlib + ffmpeg)
-│   └── gaf-serve-install.sh  # UI als systemd-user-Dienst (Autostart)
+│   ├── gaf                   # the CLI (music, sfx, ui, status, help)
+│   ├── gaf-env               # sources the build/runtime env (CUDA, GCC 13, …)
+│   ├── setup.sh              # one-click install (idempotent, no sudo)
+│   ├── setup-cuda.sh         # CUDA 12.8 toolkit into user space
+│   ├── gaf-test.sh           # quality gate: 7 deterministic cases, ~70 s
+│   ├── gaf-quality.py        # BPM / RMS / HF / correlation analyser
+│   └── gaf-serve-install.sh  # UI as a systemd user service (survives reboot)
 ├── config/
-│   └── gaf.json         # Pfade, Modelle, Parameter, FFmpeg
+│   └── gaf.json              # paths, models, parameters, FFmpeg
 ├── presets/
-│   ├── music/           # Musik-Presets (Prompt + Parameter)
-│   └── sfx/             # SFX-Presets
+│   ├── music/                # music presets (prompt + parameters)
+│   └── sfx/                  # sound-effect presets
 └── docs/
-    ├── SETUP.md         # Build-Anleitung (Fedora 44, CUDA, GCC 13)
-    └── LICENSES.md      # Lizenz-Prüfung (Runtime, Gewichte, Drittkomponenten)
+    ├── SETUP.md              # build guide (Fedora 44, CUDA, sm_120a)
+    ├── PROMPTING.md          # what actually moves the model
+    └── LICENSES.md           # runtime, weights, third-party audit
 ```
 
-**Externe Generatoren und Modellgewichte bleiben außerhalb des Repositories**
-(standardmäßig `~/dev/github/tools/`). Keine Gewichte, keine generierten
-Audio-Dateien im Git.
+Generators and model weights live **outside** the repository
+(`~/dev/github/tools/` by default). No weights, no audio in Git — ever.
 
-## Audio
+## Getting started
 
-- Ausgabe: **WAV**, lesbare Dateinamen (`<Zeitstempel>_<Prompt-Slug>.wav`).
-- **Metadaten-Sidecar** (`<name>.meta.json`): Prompt, Seed, Generator,
-  Modell, Parameter, Zeitstempel.
-- **Keine Überschreibung** bestehender Dateien (Kollision → `-2`, `-3`, …).
-- **FFmpeg (optional):** resamplet/normalisiert (z. B. Dasheng 16 kHz → 48 kHz).
-- Ausgabe-Verzeichnis: `output/{music,sfx}/` (git-ignoriert).
+```bash
+bash scripts/setup.sh                        # one command, no sudo, re-runnable
+source scripts/gaf-env                       # then, in every new shell:
+scripts/gaf music "your track" --duration 45 --seed 11
+```
 
-## Weboberfläche
+Everything the setup needs beyond `git`, `cmake` and an NVIDIA driver is
+installed into your home directory: CUDA 12.8 (extracted from the official
+runfile), GCC 13 (Fedora 44 ships GCC 16, which nvcc cannot digest) and
+sentencepiece.
 
-`gaf ui` startet die vorhandene acestep.cpp-Weboberfläche
-(`http://127.0.0.1:8085`). Keine zusätzliche gemeinsame Oberfläche.
+### The web interface (optional, but nice)
 
-## Setup
+You don't have to live in the terminal. One command installs the existing
+acestep.cpp UI as a **systemd user service** that comes back after every
+reboot:
 
-**One-Click:** `bash scripts/setup.sh` (idempotent, ohne sudo — micromamba,
-CUDA 12.8, beide Builds, Modelle, Smoke-Test). Details: [docs/SETUP.md](docs/SETUP.md).
+```bash
+bash scripts/gaf-serve-install.sh            # → http://127.0.0.1:8085
+bash scripts/gaf-serve-install.sh --remove   # uninstall
+```
 
-**UI-Dienst** (Hintergrund, Reboot-fest via systemd-user + linger):
-`bash scripts/gaf-serve-install.sh` → http://127.0.0.1:8085,
-Entfernen: `--remove`.
+## Audio output
 
-**Quality-Gate:** `scripts/gaf-test.sh` (7 deterministische Fälle mit
-objektiver Messung) · Prompting-Praxis: [docs/PROMPTING.md](docs/PROMPTING.md).
+- **WAV**, readable names: `<timestamp>_<prompt-slug>.wav`
+- a **`.meta.json` sidecar** with prompt, seed and every parameter — so a
+  track is reproducible days later
+- existing files are **never overwritten** (collisions become `-2`, `-3`, …)
+- optional **FFmpeg** normalisation (e.g. Dasheng's 16 kHz → 48 kHz)
+- output directory: `output/{music,sfx}/` (git-ignored)
 
-Kernpunkte:
+## Quality gate
 
-1. CUDA Toolkit 12.8 (user-space, ohne sudo) — `scripts/setup-cuda.sh`.
-2. GCC 13 + sentencepiece via micromamba/conda-forge (Fedora 44 hat GCC 16,
-   mit dem nvcc nicht kompiliert).
-3. `source scripts/gaf-env` → beide Generatoren bauen.
-4. Modelle laden (`models.sh` / `make download-models-q4`).
-5. `gaf status`.
+How good is "good"? `scripts/gaf-test.sh` answers with measurements: seven
+deterministic cases (three music styles, cover, repaint, two SFX), each
+checked for duration, task type, loudness and high-frequency content. BPM is
+reported via onset autocorrelation — measured, not guessed.
 
-## Lizenzen
+```bash
+scripts/gaf-test.sh        # → 7/7 BESTANDEN + JSON report in output/tests/
+python3 scripts/gaf-quality.py output/music/some-track.wav
+```
 
-**Wichtig:** Die Runtime von `audiogen.cpp` hat **kein LICENSE-File**
-(trotz Apache-2.0-Claim im README) → für kommerzielle Nutzung erst mit dem
-Autor klären. acestep.cpp (Runtime + Gewichte) ist sauber MIT.
-Details: [docs/LICENSES.md](docs/LICENSES.md).
+## Licensing — read before shipping
 
-## Hardware
+Music is clean: acestep.cpp and all ACE-Step weights are MIT, commercial use
+explicitly allowed. **audiogen.cpp is the exception**: its README claims
+Apache-2.0, but the repository contains no LICENSE file — which legally means
+"all rights reserved". The Dasheng *weights* are properly Apache-2.0; only the
+runtime code needs clarification with the author before it ends up in a
+commercial game. Details and contacts: [docs/LICENSES.md](docs/LICENSES.md).
+
+## Target hardware
 
 Fedora Workstation 44, Framework Laptop 16, NVIDIA RTX 5070 Laptop (8 GB
-VRAM). VRAM-Budget und Einzel-Generatoren-Strategie: [docs/SETUP.md](docs/SETUP.md).
+VRAM). VRAM budget and the reasoning behind sequential generation:
+[docs/SETUP.md](docs/SETUP.md).

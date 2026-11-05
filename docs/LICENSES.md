@@ -1,56 +1,54 @@
-# Lizenzen
+# Licenses
 
-Stand: 2026-11-04. Für spätere kommerzielle Spieleentwicklung relevant.
+As of 2026-11-04. Everything here matters because the end goal is
+**commercial game development** — so we checked runtime code, model weights
+and third-party pieces alike.
 
-## Zusammenfassung
+## Summary
 
-| Komponente | Lizenz | Kommerziell? | Quelle |
+| Component | License | Commercial use? | Source |
 |---|---|---|---|
-| acestep.cpp (Runtime) | MIT | ✅ Ja | [LICENSE](https://github.com/ServeurpersoCom/acestep.cpp/blob/master/LICENSE) |
-| ACE-Step 1.5 Gewichte (Serveurperso/ACE-Step-1.5-GGUF) | MIT | ✅ Ja, explizit erlaubt | [HF](https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF) |
-| ACE-Step 1.5 Basisgewichte (ACE-Step/Ace-Step1.5) | MIT | ✅ Ja, explizit: „use the generated music for commercial purposes" | [HF](https://huggingface.co/ACE-Step/Ace-Step1.5) |
-| **audiogen.cpp (Runtime)** | **⚠️ KEIN LICENSE-File** | **❌ Nicht ohne Klärung** | [Repo](https://github.com/audiohacking/audiogen.cpp) |
-| Dasheng-AudioGen Gewichte (mispeech/Dasheng-AudioGen) | Apache-2.0 | ✅ Ja | [HF](https://huggingface.co/mispeech/Dasheng-AudioGen) |
-| Dasheng GGUF-Konvertierung (audiohacking/dasheng-audiogen-gguf) | Apache-2.0 (HF-Tag) | ✅ Ja | [HF](https://huggingface.co/audiohacking/dasheng-audiogen-gguf) |
-| ggml (Submodul, beide Repos) | MIT | ✅ Ja | [ggml](https://github.com/ggml-org/ggml) |
-| CUDA Toolkit 12.8 | NVIDIA EULA | ✅ Ja (Proprietär) | [NVIDIA](https://docs.nvidia.com/cuda/cuda-eula/index.html) |
-| FFmpeg (optional) | LGPL-2.1+/GPL-2.0+ | ✅ Ja (LGPL, dynamisch) | [FFmpeg](https://ffmpeg.org/legal.html) |
+| acestep.cpp (runtime) | MIT | ✅ Yes | [LICENSE](https://github.com/ServeurpersoCom/acestep.cpp/blob/master/LICENSE) |
+| ACE-Step 1.5 GGUF weights (Serveurperso/ACE-Step-1.5-GGUF) | MIT | ✅ Yes | [HF](https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF) |
+| ACE-Step 1.5 base weights (ACE-Step/Ace-Step1.5) | MIT | ✅ Yes — "use the generated music for commercial purposes" | [HF](https://huggingface.co/ACE-Step/Ace-Step1.5) |
+| **audiogen.cpp (runtime)** | **⚠️ no LICENSE file** | **❌ not until clarified** | [repo](https://github.com/audiohacking/audiogen.cpp) |
+| Dasheng-AudioGen weights (mispeech/Dasheng-AudioGen) | Apache-2.0 | ✅ Yes | [HF](https://huggingface.co/mispeech/Dasheng-AudioGen) |
+| Dasheng GGUF conversions (audiohacking/dasheng-audiogen-gguf) | Apache-2.0 (HF tag) | ✅ Yes | [HF](https://huggingface.co/audiohacking/dasheng-audiogen-gguf) |
+| ggml (submodule in both repos) | MIT | ✅ Yes | [ggml](https://github.com/ggml-org/ggml) |
+| CUDA Toolkit 12.8 | NVIDIA EULA | ✅ Yes (proprietary) | [EULA](https://docs.nvidia.com/cuda/cuda-eula/index.html) |
+| FFmpeg (optional) | LGPL-2.1+/GPL-2.0+ | ✅ Yes (dynamic linking) | [legal](https://ffmpeg.org/legal.html) |
 
-## ⚠️ audiogen.cpp: Lizenz-Problem (kritisch)
+## ⚠️ audiogen.cpp: the one blocker
 
-Das Repository `audiohacking/audiogen.cpp` **enthält kein LICENSE-File**, obwohl das
-README „Apache-2.0" angibt.
+`audiohacking/audiogen.cpp` **contains no LICENSE file**, even though its
+README says "Apache-2.0" and carries an "Experimental — use at your own risk"
+banner.
 
 - `https://raw.githubusercontent.com/audiohacking/audiogen.cpp/main/LICENSE` → **404**
-- GitHub-API: `"license": null`
-- README-Banner: „⚠️ Experimental - use at your own risk!"
+- GitHub API: `"license": null`
 
-**Rechtliche Folge:** Ohne LICENSE-File gilt „all rights reserved" — das
-Apache-2.0-Statement im README ist rechtlich nicht wirksam. Niemand (auch wir
-nicht) hat das Recht, den Code zu nutzen, zu modifizieren oder zu
-verwenden, **einschließlich kommerzieller Spieleentwicklung**.
+**Legal consequence:** without a license file the default is "all rights
+reserved". The Apache-2.0 claim in a README is not an effective grant —
+nobody (including us) may use, modify or ship the code, **including in
+commercial games**, until the author says otherwise.
 
-**Modellgewichte sind sauber:** Die Dasheng-Gewichte (Apache-2.0) und die
-GGUF-Konvertierung (Apache-2.0) sind korrekt lizenziert. Das Problem betrifft
-ausschließlich den Runtime-Code.
+The **weights are clean**: both the original Dasheng weights and the GGUF
+conversions are properly Apache-2.0. The issue is only the runtime code.
 
-**Aktion vor kommerzieller Nutzung:**
-1. Den Autor (audiohacking-Organisation) kontaktieren und um ein
-   LICENSE-File / explizite Freigabe bitten.
-2. Bis dahin: audiogen.cpp **nur intern/experimentell** verwenden, keine
-   generierten SFX in kommerzielle Spiele aufnehmen, die der Runtime-Code
-   erzeugt.
-3. Alternative: Eigenen C++-Port der Dasheng-Referenz (Apache-2.0) schreiben,
-   falls der Autor nicht reagiert.
+**Before commercial use:**
+1. Ask the audiohacking org to add a LICENSE file / explicit grant.
+2. Until then: internal/experimental use only; don't ship runtime-produced
+   SFX in commercial builds.
+3. If the author stays silent: port the Apache-2.0 Python reference to C++
+   ourselves (the conversion scripts in `convert/` are Apache-2.0).
 
-## acestep.cpp: sauber
+## acestep.cpp: clean
 
-Runtime (MIT) und alle Gewichte (MIT) sind für kommerzielle Nutzung frei.
-ACE-Step 1.5 erlaubt kommerzielle Nutzung der generierten Musik explizit.
+Runtime MIT, all weights MIT. ACE-Step 1.5 explicitly allows commercial use
+of generated music. Green light.
 
-## Projekt-Lizenz
+## This repository
 
-Das `game-audio-forge`-Repository selbst (Wrapper, Config, Doku) ist
-unabhängig von den externen Generatoren lizenziert. Die externen
-Generatoren und Modellgewichte bleiben **außerhalb** des Repositories und
-unterliegen ihren eigenen Lizenzen.
+`game-audio-forge` itself (wrapper, config, docs) is licensed independently.
+External generators and weights stay **outside** the repo under their own
+terms.

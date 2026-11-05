@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# gaf-benchmark.sh — misst Geschwindigkeit, RAM/VRAM und Audioqualität.
+# gaf-benchmark.sh — measures speed, RAM/VRAM and audio quality.
 #
-# Nutzung:
+# usage:
 #   scripts/gaf-benchmark.sh music "Prompt"
 #   scripts/gaf-benchmark.sh sfx "Prompt"
 #
 # Misst:
-#   - Wall-Clock-Zeit der Generierung
+#   - wall-clock time of generation
 #   - VRAM-Peak (nvidia-smi, 0.5 s-Abtastung im Hintergrund)
 #   - RAM-Peak (VmHWM des Prozesses)
-#   - Audioqualität: Dauer, Abtastrate, Kanäle, RMS-Lautstärke,
+#   - audio quality: duration, sample rate, channels, RMS loudness,
 #     Crest-Faktor, spektrale Bandbreite (via FFmpeg/sox)
 set -euo pipefail
 
@@ -18,7 +18,7 @@ GAF="$GAF_HOME/scripts/gaf"
 
 KIND="${1:-}"
 PROMPT="${2:-}"
-[[ -z "$KIND" || -z "$PROMPT" ]] && { echo "Nutzung: $0 {music|sfx} \"Prompt\""; exit 1; }
+[[ -z "$KIND" || -z "$PROMPT" ]] && { echo "usage: $0 {music|sfx} \"prompt\""; exit 1; }
 
 WORK="$(mktemp -d)"
 VRAM_LOG="$WORK/vram.log"
@@ -51,10 +51,10 @@ ELAPSED=$(awk "BEGIN{printf \"%.1f\", $T_END - $T_START}")
 VRAM_PEAK=$(sort -n "$VRAM_LOG" 2>/dev/null | tail -1)
 VRAM_PEAK="${VRAM_PEAK:-?}"
 
-# --- Neueste Ausgabe-Datei finden ---
+# --- find newest output file ---
 OUTDIR="$GAF_HOME/output/$KIND"
 LATEST="$(ls -t "$OUTDIR"/*.wav 2>/dev/null | head -1)"
-[[ -n "$LATEST" ]] || { echo "Keine Ausgabe gefunden in $OUTDIR"; exit 1; }
+[[ -n "$LATEST" ]] || { echo "no output found in $OUTDIR"; exit 1; }
 
 # --- Audio-Analyse via FFmpeg ---
 DUR="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$LATEST")"
@@ -67,7 +67,7 @@ PEAK="$(ffmpeg -hide_banner -i "$LATEST" -af "astats=measure_overall=Peak_level"
   | grep 'Peak level dB' | tail -1 | grep -oE '[-0-9.]+' | tail -1)"
 CREST="$(awk -v p="${PEAK:-0}" -v r="${RMS:-0}" 'BEGIN{printf "%.1f", p - r}')"
 
-#HF = RMS des Hochpass-Anteils (>4 kHz) als overall. Nähe zu RMS (Gesamt) → viel HF.
+#HF = RMS of the high-pass share (>4 kHz), overall. close to RMS (total) -> lots of HF.
 HF="$(ffmpeg -hide_banner -i "$LATEST" -af "highpass=f=4000,astats=measure_overall=RMS_level" -f null - 2>&1 \
   | grep 'RMS level dB' | tail -1 | grep -oE '[-0-9.]+' | tail -1)"
 
@@ -75,17 +75,17 @@ echo
 echo "════════════════════════════════════════════════"
 echo "  Benchmark: $KIND — \"$PROMPT\""
 echo "════════════════════════════════════════════════"
-echo "  Datei:        $LATEST"
-echo "  Dauer Audio:  ${DUR}s"
+echo "  File:         $LATEST"
+echo "  Audio length: ${DUR}s"
 echo "  Abtastrate:   ${RATE} Hz"
-echo "  Kanäle:       $CH"
+echo "  Channels:     $CH"
 echo "  ── Performance ──"
 echo "  Wall-Clock:   ${ELAPSED}s"
 echo "  VRAM-Peak:    ${VRAM_PEAK} MiB (Start: ${VRAM_START} MiB)"
-echo "  ── Audioqualität ──"
+echo "  ── audio quality ──"
 echo "  RMS:          ${RMS} dB"
 echo "  Peak:         ${PEAK} dB"
 echo "  Crest-Faktor: ${CREST} dB"
 HF_DELTA="$(awk -v h="${HF:-0}" -v r="${RMS:-0}" 'BEGIN{printf "%.1f", h - r}')"
-echo "  Hochpass >4k: ${HF} dB  (Gesamt-RMS: ${RMS} dB → HF-Anteil: ${HF_DELTA} dB unter Gesamt)"
+echo "  Highpass >4k: ${HF} dB  (total RMS: ${RMS} dB → HF share: ${HF_DELTA} dB below total)"
 echo "════════════════════════════════════════════════"

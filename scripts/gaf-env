@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# gaf-env — lädt die Build-/Laufzeit-Umgebung für die GAF-Generatoren.
+# gaf-env — loads the build/runtime environment for the GAF generators.
 #
-# Nutzung:
+# usage:
 #   source ~/dev/github/game-audio-forge/scripts/gaf-env
 #
 # Stellt bereit:
 #   - CUDA 12.8 Toolkit (user-space, ~/dev/github/tools/cuda/cuda-12.8)
 #   - GCC 13 (conda-forge, via micromamba) — nvcc braucht Host-Compiler <=15
-#   - sentencepiece (conda-forge) — für audiogen.cpp
+#   - sentencepiece (conda-forge) — for audiogen.cpp
 #
-# Hintergrund: Fedora 44 liefert GCC 16, mit dem nvcc (CUDA 12.8) nicht
-# kompiliert (char8_t-Fehler, vgl. acestep.cpp Issue #72). Deshalb GCC 13
-# aus conda-forge, sudo-frei.
+# background: Fedora 44 ships GCC 16, which nvcc (CUDA 12.8) cannot
+# compile (char8_t errors, see acestep.cpp issue #72). hence GCC 13
+# from conda-forge, sudo-free.
 set -o allexport
 
 GAF_TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
@@ -38,10 +38,10 @@ export NVCC_CCBIN="$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/bin/g++"
 
 set +o allexport
 
-# Sanity-Check (nur wenn interaktiv)
+# sanity check (interactive only)
 if [[ -t 0 ]]; then
   echo "[gaf-env] CUDA:  $GAF_CUDA"
-  echo "[gaf-env] nvcc:  $(command -v nvcc || echo FEHLT)"
+  echo "[gaf-env] nvcc:  $(command -v nvcc || echo MISSING)"
   echo "[gaf-env] g++:   $(g++ --version 2>/dev/null | head -1)"
-  echo "[gaf-env] spiece: $(pkg-config --modversion sentencepiece 2>/dev/null || echo FEHLT)"
+  echo "[gaf-env] spiece: $(pkg-config --modversion sentencepiece 2>/dev/null || echo MISSING)"
 fi

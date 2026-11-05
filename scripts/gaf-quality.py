@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""gaf-quality.py — objektive Audio-Analyse für generierte Dateien.
+"""gaf-quality.py — objective audio analysis for generated files.
 
-Nutzung:
-    gaf-quality.py DATEI [DATEI2]
+usage:
+    gaf-quality.py FILE [FILE2]
 
-Ausgabe (JSON, eine Zeile):
-    bpm               gemessenes Tempo (Onset-Autokorrelation, 60–240)
-    bpm_conf          Peak/Median der Autokorrelation (Konfidenz, >1.5 = sicher)
-    duration_s        echte Länge
+output (JSON, one line):
+    bpm               measured tempo (onset autocorrelation, 60–240)
+    bpm_conf          peak/median autocorrelation (confidence, >1.5 = solid)
+    duration_s        actual length
     rate              Abtastrate
-    rms_db / peak_db  Lautstärke (overall)
+    rms_db / peak_db  loudness (overall)
     stereo_corr       Median-Korrelation L/R (astats)
-    hf_delta_db       RMS >4 kHz minus Gesamt-RMS (negativ = HF-arm)
-    envelope_corr     Pearson der Einsüllhüllen, nur bei 2 Dateien (0..1)
+    hf_delta_db       RMS >4 kHz minus total RMS (negative = HF-poor)
+    envelope_corr     Pearson of onset envelopes, 2 files only (0..1)
 
 Pure Python-Stdlib + ffmpeg/ffprobe.
 """
@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 RATE = 8000       # Analyse-Samplingrate
-BLOCK = 0.02      # Blockdauer s (20 ms → BPM bis 240 auflösbar)
+BLOCK = 0.02      # block length s (20 ms → resolves BPM up to 240)
 MAXSEC = 180      # Analyse-Fenster
 
 

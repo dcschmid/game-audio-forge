@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# gaf-serve-install.sh — acestep.cpp Weboberfläche als user-Dienst (systemd).
+# gaf-serve-install.sh — acestep.cpp web UI as a user service (systemd).
 #
-# Läuft im Hintergrund, startet nach Reboot automatisch (linger aktiviert),
-# ohne sudo. Nutzung:
+# runs in the background, restarts after reboot (linger enabled),
+# no sudo. usage:
 #   bash scripts/gaf-serve-install.sh            # installieren + starten
 #   bash scripts/gaf-serve-install.sh --remove   # deinstallieren
 #
@@ -40,7 +40,7 @@ WorkingDirectory=$GAF_HOME
 ExecStart=/usr/bin/env bash -lc 'source $ENVF && exec $TOOLS/acestep.cpp/build/ace-server --host $HOST --port $PORT --models $TOOLS/acestep.cpp/models --adapters $TOOLS/acestep.cpp/adapters --max-batch 1'
 Restart=on-failure
 RestartSec=3
-# UI-Server hält Module nur bei Bedarf — VRAM-freundlich, evictet selbst.
+# the UI server holds modules on demand — VRAM-friendly, self-evicting.
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
@@ -50,17 +50,17 @@ EOF
 systemctl --user daemon-reload
 systemctl --user enable --now gaf-audio-ui.service
 
-# user-Instanzen müssen nach Logout/Reboot laufen können:
+# user instances must survive logout/reboot:
 if loginctl enable-linger "$USER" 2>/dev/null; then
-  echo "[gaf-serve] linger aktiviert (Dienst überlebt Abmelden/Reboot)"
+  echo "[gaf-serve] linger enabled (service survives logout/reboot)"
 else
-  echo "[gaf-serve] ACHTUNG: linger nicht aktivierbar — Dienst startet erst nach Login"
+  echo "[gaf-serve] WARNING: cannot enable linger — service starts only after login"
 fi
 
 sleep 2
 if systemctl --user is-active --quiet gaf-audio-ui.service; then
   echo "[gaf-serve] OK: http://$HOST:$PORT  (Logs: journalctl --user -u gaf-audio-ui -f)"
 else
-  echo "[gaf-serve] Dienst startet nicht — Status:"
+  echo "[gaf-serve] service did not start — status:"
   systemctl --user status gaf-audio-ui.service --no-pager | tail -8
 fi

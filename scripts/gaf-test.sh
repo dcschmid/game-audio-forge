@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# gaf-test.sh — Quality-Gate: definierte Fälle deterministisch generieren + bewerten.
+# gaf-test.sh — quality gate: generate defined cases deterministically + score.
 #
-# Nutzung: scripts/gaf-test.sh
-# Benötigt gaf-env (CUDA/Modelle). Ergebnis: stdout JSON + output/tests/<datum>/
+# usage: scripts/gaf-test.sh
+# needs gaf-env (CUDA/models). result: stdout JSON + output/tests/<date>/
 set -euo pipefail
 GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
@@ -14,8 +14,8 @@ mkdir -p "$RUNDIR"
 
 declare -A BPM_MIN=( )
 declare -A BPM_MAX=( )
-# Hinweis: --bpm wird vom Turbo-Port aktuell ignoriert (gemessen: 160 angefragt
-# -> 106 gemessen, conf 4.06). BPM wird nur berichtet, nicht geprüft.
+# note: --bpm is currently ignored by the turbo port (measured: 160 requested
+# -> measured 106, conf 4.06). BPM is reported, not asserted.
 declare -A DUR_MIN=( [metal-racing]=16 [chiptune-loop]=16 [ambient-pad]=16 [cover-run]=20 [repaint-run]=20 )
 declare -A DUR_MAX=( [metal-racing]=36 [chiptune-loop]=36 [ambient-pad]=36 [cover-run]=45 [repaint-run]=45 )
 declare -A TASK=( [metal-racing]=text2music [chiptune-loop]=text2music [ambient-pad]=text2music
@@ -46,29 +46,29 @@ run_case() { # name, kind, args…
   [[ -f "$RUNDIR/$name.meta.json" ]] && task_meta=$(jq -r '.task_type // "text2music"' "$RUNDIR/$name.meta.json")
 
   local ok=1 reasons=""
-  # 1) Länge im Rahmen
+  # 1) duration within bounds
   local dmin="${DUR_MIN[$name]:-4}" dmax="${DUR_MAX[$name]:-8}"
   awk -v d="$dur" -v a="$dmin" -v b="$dmax" 'BEGIN{exit !(d>=a*0.85 && d<=b*1.25)}' \
-    || { ok=0; reasons+="dauer=${dur}s nicht [${dmin}-${dmax}] "; }
+    || { ok=0; reasons+="duration=${dur}s outside [${dmin}-${dmax}] "; }
   # 2) Task-Typ (nur music)
   if [[ "$kind" == "music" ]]; then
     [[ "$task_meta" == "${TASK[$name]}" ]] \
       || { ok=0; reasons+="task=${task_meta}≠${TASK[$name]} "; }
   fi
-  # 3) BPM-Band (nur mit bpm_conf >= 1.5)
+  # 3) BPM band (only with bpm_conf >= 1.5)
   if [[ -n "${BPM_MIN[$name]:-}" ]]; then
     if awk -v c="$conf" 'BEGIN{exit !(c>=1.5)}'; then
       awk -v b="$bpm" -v a="${BPM_MIN[$name]}" -v z="${BPM_MAX[$name]}" \
         'BEGIN{exit !(b>=a-10 && b<=z+10)}' \
         || { ok=0; reasons+="bpm=${bpm}∉[${BPM_MIN[$name]}-${BPM_MAX[$name]}] "; }
     else
-      echo "   BPM-Konfidenz $conf zu niedrig — Bandprüfung übersprungen"
+      echo "   BPM confidence $conf too low — band check skipped"
     fi
   fi
   # 4) Loudness
   awk -v r="$rms" 'BEGIN{exit !(r>-30 && r<-3)}' \
     || { ok=0; reasons+="rms=${rms}dB "; }
-  # 5) HF-Gehalt: inhaltsabhängig. Pads/Covers dürfen HF-arm sein (-32),
+  # 5) HF content: content-dependent. pads/covers may be HF-poor (-32),
   #    rhythmische Inhalte sollten > -25 haben.
   local hfmin=-25
   case "$name" in ambient-pad|cover-run) hfmin=-32 ;; esac
@@ -88,9 +88,9 @@ run_case metal-racing music "driving metal racing track, fast double-kick, gallo
 run_case chiptune-loop music "happy chiptune loop, retro video game" --duration 20 --seed 42
 run_case ambient-pad music "soft ambient pad, slow, spacious" --duration 20 --seed 42
 [[ -f "$BASE" ]] && run_case cover-run music "jazz cover with soft piano" --cover "$BASE" --duration 24 \
-                || echo "── cover-run übersprungen (Base fehlt)"
+                || echo "── cover run skipped (base model missing)"
 [[ -f "$BASE" ]] && run_case repaint-run music "repaired intro" --repaint "$BASE" --from 0 --to 8 \
-                || echo "── repaint-run übersprungen (Base fehlt)"
+                || echo "── repaint run skipped (base model missing)"
 run_case kart-engine sfx "go-kart engine revving, small piston engine, high pitch"
 run_case rain sfx "heavy rain falling on pavement, steady rainfall"
 

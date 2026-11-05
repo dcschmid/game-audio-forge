@@ -2,7 +2,7 @@
 # setup-cuda.sh — baut das CUDA-Toolkit 12.8 aus dem Runfile (user-space, ohne sudo).
 #
 # Hintergrund: Der NVIDIA-Runfile-Installer will ein GUI-Terminal (konsole)
-# für die EULA. Dieses Skript extrahiert stattdessen das Payload und merged
+# for the EULA. this script extracts the payload instead and merges
 # die Komponenten zu einem einheitlichen Toolkit-Verzeichnis.
 #
 # Ergebnis: $GAF_TOOLS/cuda/cuda-12.8/{bin,lib64,include,nvvm}
@@ -18,7 +18,7 @@ mkdir -p "$CUDA_DIR"
 
 # 1) Runfile laden
 if [[ ! -f "$RUNFILE" ]]; then
-  echo "[setup-cuda] Lade CUDA-Runfile …"
+  echo "[setup-cuda] downloading CUDA runfile …"
   curl -sL -o "$RUNFILE" "$URL"
 fi
 
@@ -64,6 +64,6 @@ cp "$EXTRACT/version.json" "$DEST/" 2>/dev/null || true
 if [[ -x "$DEST/bin/nvcc" ]]; then
   echo "[setup-cuda] OK: $($DEST/bin/nvcc --version | grep -oE 'release [0-9.]+' | head -1)"
 else
-  echo "[setup-cuda] FEHLER: nvcc nicht gefunden in $DEST/bin" >&2
+  echo "[setup-cuda] ERROR: nvcc not found in $DEST/bin" >&2
   exit 1
 fi

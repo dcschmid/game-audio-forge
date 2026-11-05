@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # setup.sh — One-Click-Installation der Game Audio Forge (idempotent).
 #
-# Nutzung:  bash scripts/setup.sh          (frisch oder erneut — alles cached)
-# Benötigt KEIN sudo. Benötigt: git, curl, cmake, ninja/make, gcc, nvidia-treiber.
+# usage:  bash scripts/setup.sh          (frisch oder erneut — alles cached)
+# no sudo needed. requires: git, curl, cmake, ninja/make, gcc, nvidia driver.
 #
-# Schritte (alle idempotent):
+# stepe (alle idempotent):
 #   1. micromamba (user-space, stabil in ~/.local/bin)
 #   2. conda-env "gaf": gcc/g++ 13 + sentencepiece
 #   3. CUDA Toolkit 12.8 (Runfile → user-space, via scripts/setup-cuda.sh)
@@ -91,7 +91,7 @@ if [[ ! -x "$AUD/build-cuda/dasheng-audiogen" ]]; then
 fi
 ok "audiogen.cpp gebaut"
 
-# --- 5) Modelle ---------------------------------------------------------------
+# --- 5) models ---------------------------------------------------------------
 have() { [[ -s "$1" ]];
   sz=$(wc -c < "$1" 2>/dev/null || echo 0); (( sz > 1000000 )); }
 M_ACE="$ACE/models"; M_AUD="$AUD/models"
@@ -101,24 +101,24 @@ for f in vae-BF16.gguf Qwen3-Embedding-0.6B-Q8_0.gguf acestep-5Hz-lm-0.6B-Q8_0.g
   have "$M_ACE/$f" || need_ace=1
 done
 if (( need_ace )); then
-  step "ACE-Step Modelle (SFT-Set + 0.6B LM + VAE, ~6 GB)"
+  step "ACE-Step models (SFT set + 0.6B LM + VAE, ~6 GB)"
   for f in vae-BF16.gguf Qwen3-Embedding-0.6B-Q8_0.gguf acestep-5Hz-lm-0.6B-Q8_0.gguf acestep-v15-sft-Q8_0.gguf; do
     hf download --quiet Serveurperso/ACE-Step-1.5-GGUF "$f" --local-dir "$M_ACE" || die "Download $f"
   done
 fi
-ok "ACE-Step Modelle"
+ok "ACE-Step models"
 need_aud=0
 for f in t5_encoder.gguf dit_Q4_0.gguf vocoder.gguf spiece.model; do
   have "$M_AUD/$f" || need_aud=1
 done
 if (( need_aud )); then
-  step "Dasheng Q4 Modelle (~2.8 GB)"
+  step "Dasheng Q4 models (~2.8 GB)"
   for f in t5_encoder.gguf dit_Q4_0.gguf vocoder.gguf spiece.model; do
     hf download --quiet audiohacking/dasheng-audiogen-gguf "$f" --local-dir "$M_AUD" || die "Download $f"
   done
 fi
 [[ -f "$M_AUD/dit.gguf" || ! -f "$M_AUD/dit_Q4_0.gguf" ]] || mv "$M_AUD/dit_Q4_0.gguf" "$M_AUD/dit.gguf"
-ok "Dasheng Modelle"
+ok "Dasheng models"
 
 # --- 6) Smoke -----------------------------------------------------------------
 step "Smoke-Test"
