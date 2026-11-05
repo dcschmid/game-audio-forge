@@ -127,8 +127,37 @@ gpu_busy() {
 # gaf music "Prompt"
 # ---------------------------------------------------------------------------
 cmd_music() {
-  local prompt="${1:-}"
-  [[ -z "$prompt" ]] && die "gaf music: Prompt fehlt. Beispiel: gaf music \"upbeat metal racing track\""
+  # Optionen: --bpm N --duration N --seed N --steps N
+  #           --cover SRC [--cover-strength F] [--noise-strength F]
+  #           --repaint SRC --from S --to S
+  #           --ref AUDIO
+  local opt_bpm="" opt_dur="" opt_seed="" opt_steps="" opt_cover="" opt_ref=""
+  local opt_cs="" opt_ns="" opt_from="" opt_to="" opt_mode=""
+  # Optionen werden zwischen/bzw. nach Argumenten gescannt: gaf music "Prompt" --bpm 160
+  local -a _pos=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --bpm)       opt_bpm="$2"; shift 2 ;;
+      --duration)  opt_dur="$2"; shift 2 ;;
+      --seed)      opt_seed="$2"; shift 2 ;;
+      --steps)     opt_steps="$2"; shift 2 ;;
+      --cover)     opt_cover="$2"; shift 2 ;;
+      --repaint)   opt_cover="$2"; opt_mode=repaint; shift 2 ;;
+      --from)      opt_from="$2"; shift 2 ;;
+      --to)        opt_to="$2"; shift 2 ;;
+      --cover-strength) opt_cs="$2"; shift 2 ;;
+      --noise-strength) opt_ns="$2"; shift 2 ;;
+      --ref)       opt_ref="$2"; shift 2 ;;
+      *) _pos+=("$1"); shift ;;
+    esac
+  done
+  local prompt="${_pos[0]:-}"
+  [[ -z "$prompt" && -z "$opt_cover" ]] && die "gaf music: Prompt fehlt. Beispiel: gaf music \"upbeat metal racing track\""
+  [[ -n "$opt_cover" && ! -f "$opt_cover" ]] && die "gaf music: Quell-Audio fehlt: $opt_cover"
+  [[ -n "$opt_ref" && ! -f "$opt_ref" ]] && die "gaf music: Referenz-Audio fehlt: $opt_ref"
+  # ace-synth läuft in einem Arbeitsverzeichnis — Pfade müssen absolut sein
+  [[ -n "$opt_cover" ]] && opt_cover="$(cd "$(dirname "$opt_cover")" && pwd)/$(basename "$opt_cover")"
+  [[ -n "$opt_ref" ]]   && opt_ref="$(cd "$(dirname "$opt_ref")" && pwd)/$(basename "$opt_ref")"
 
   [[ -x "$MUSIC_BIN_LM" ]]    || die "ace-lm nicht gefunden: $MUSIC_BIN_LM (Build fehlt?)"
   [[ -x "$MUSIC_BIN_SYNTH" ]] || die "ace-synth nicht gefunden: $MUSIC_BIN_SYNTH (Build fehlt?)"
@@ -151,7 +180,7 @@ cmd_music() {
   device="$(cfg music.device CUDA0)"
   duration="$(cfg music.duration 32)"
   vae_chunk="$(cfg music.vae_chunk 512)"
-  # Erweitere Parameter (Defaults = "LLM/Modell entscheidet selbst"):
+  # Erweitere Parameter (Defaults = "LLM/Model entscheidet selbst"):
   bpm="$(cfg music.bpm 0)"
   keyscale="$(cfg music.keyscale "")"
   timesignature="$(cfg music.timesignature "")"
@@ -163,9 +192,17 @@ cmd_music() {
   use_cot_caption="$(cfg music.use_cot_caption true)"
   solver="$(cfg music.solver euler)"
   peak_clip="$(cfg music.peak_clip 10)"
+  # CLI-Overrides schlagen Config
+  [[ -n "$opt_bpm" ]]    && bpm="$opt_bpm"
+  [[ -n "$opt_dur" ]]    && duration="$opt_dur"
+  [[ -n "$opt_steps" ]]  && steps="$opt_steps"
+  # Task-Modi: text2music (Default) | cover | repaint  (Turbo-Model okay)
+  local task_type="${opt_mode:-text2music}"
+  [[ -n "$opt_cover" && "$task_type" == "text2music" ]] && task_type="cover"
+  local cs="${opt_cs:-1.0}" ns="${opt_ns:-0.0}" from="${opt_from:-0}" to="${opt_to:--1}"
 
   local seed
-  seed="$(date +%s%N | cut -c1-10)"
+  if [[ -n "$opt_seed" ]]; then seed="$opt_seed"; else seed="$(date +%s%N | cut -c1-10)"; fi
 
   local ts slug outdir
   ts="$(date +%Y%m%d-%H%M%S)"
@@ -198,6 +235,11 @@ cmd_music() {
     --argjson use_cot_caption "$use_cot_caption" \
     --arg solver "$solver" \
     --argjson peak_clip "$peak_clip" \
+    --argjson cs "$cs" \
+    --argjson ns "$ns" \
+    --argjson from "$from" \
+    --argjson to "$to" \
+    --arg task "$task_type" \
     --arg outfmt "$outfmt" \
     --arg lm "$lm_model" \
     --arg synth "$synth_model" \
@@ -205,6 +247,7 @@ cmd_music() {
        caption: $caption,
        lyrics: $lyrics,
        seed: $seed,
+       task_type: $task,
        inference_steps: $steps,
        shift: $shift,
        duration: $duration,
@@ -219,21 +262,31 @@ cmd_music() {
        use_cot_caption: $use_cot_caption,
        solver: $solver,
        peak_clip: $peak_clip,
+       audio_cover_strength: $cs,
+       cover_noise_strength: $ns,
+       repainting_start: $from,
+       repainting_end: $to,
        output_format: $outfmt,
        lm_model: $lm,
        synth_model: $synth
      }' > "$req"
 
-  log "Musik generieren: \"$prompt\""
+  log "Musik (${task_type}): \"${prompt:-<cover/repaint>}\""
   log "  LM=$lm_model  DiT=$synth_model  steps=$steps  seed=$seed"
 
-  # Stufe 1: LM → Audio-Codes (request.json → request0.json)
-  log "  [1/2] ace-lm …"
-  ( cd "$work" && "$MUSIC_BIN_LM" --models "$MUSIC_MODELS" --request request.json --device "$device" )
-
-  # Stufe 2: DiT+VAE → Audio (request0.json → request00.wav)
-  log "  [2/2] ace-synth …"
-  ( cd "$work" && "$MUSIC_BIN_SYNTH" --models "$MUSIC_MODELS" --request request0.json --device "$device" --vae-chunk "$vae_chunk" )
+  # Stufen: text2music = ace-lm → ace-synth; cover/repaint = nur ace-synth
+  local synth_req="$work/request.json"
+  local -a synth_args=( --models "$MUSIC_MODELS" --device "$device" --vae-chunk "$vae_chunk" )
+  [[ -n "$opt_cover" ]] && synth_args+=( --src-audio "$opt_cover" )
+  [[ -n "$opt_ref" ]]   && synth_args+=( --ref-audio "$opt_ref" )
+  if [[ "$task_type" == "text2music" ]]; then
+    log "  [1/2] ace-lm …"
+    ( cd "$work" && "$MUSIC_BIN_LM" --models "$MUSIC_MODELS" --request request.json --device "$device" )
+    synth_req="$work/request0.json"
+  else
+    log "  ace-synth (${task_type}, ohne LM) …"
+  fi
+  ( cd "$work" && "$MUSIC_BIN_SYNTH" --request "$(basename "$synth_req")" "${synth_args[@]}" )
 
   # Ergebnis finden (die erzeugte .wav, nicht die Eingabe).
   local produced
@@ -267,8 +320,9 @@ cmd_music() {
     --arg outfmt "$outfmt" \
     --arg device "$device" \
     --arg f "$(basename "$target")" \
+    --arg task "$task_type" \
     --arg created "$(date -Iseconds)" \
-    '{prompt:$prompt, seed:$seed, generator:$generator, lm_model:$lm, synth_model:$synth,
+    '{prompt:$prompt, seed:$seed, generator:$generator, task_type:$task, lm_model:$lm, synth_model:$synth,
       inference_steps:$steps, shift:$shift, duration_s:$duration, bpm:$bpm,
       keyscale:$keyscale, timesignature:$timesignature, lm_temperature:$lm_temperature,
       solver:$solver, output_format:$outfmt, device:$device, file:$f, created:$created}'
@@ -435,28 +489,45 @@ cmd_help() {
 gaf — Game Audio Forge CLI
 
 Verwendung:
-  gaf music "Prompt"    Instrumentale Musik (ACE-Step 1.5, Turbo 0.6B-LM, CUDA)
-  gaf sfx "Prompt"      Soundeffekt (Dasheng AudioGen, CUDA)
-  gaf ui                acestep.cpp Weboberfläche starten (http://127.0.0.1:8085)
-  gaf status            GPU, Binaries, Modelle, FFmpeg anzeigen
-  gaf help              Diese Hilfe
+  gaf music "Prompt" [Optionen]   Instrumentale Musik (ACE-Step 1.5, Turbo 0.6B-LM, CUDA)
+  gaf sfx "Prompt"                Soundeffekt (Dasheng AudioGen, CUDA)
+  gaf ui                          acestep.cpp Weboberfläche starten (http://127.0.0.1:8085)
+  gaf status                      GPU, Binaries, Modelle, FFmpeg anzeigen
+  gaf help                        Diese Hilfe
 
-Optionen (via config/gaf.json):
-  music.lm_model, music.synth_model, music.inference_steps, music.shift
-  sfx.steps, sfx.duration, sfx.cfg
-  ffmpeg.enabled, ffmpeg.target_format, ffmpeg.target_rate
+music-Optionen (CLI > config/gaf.json):
+  --bpm N            Tempo erzwingen (0 = LLM-Wahl)
+  --duration N       Sekunden 10–600 (0 = LLM-Wahl)
+  --seed N           DiT-Seed (identische Seeds → ähnliche, nicht bitgleiche Songs;
+                     der LM-Lauf ist immer random)
+  --steps N          Denoise-Schritte (Turbo-Preset 8; mehr = besser, langsamer)
+  --cover SRC        Cover-Modus: SRC (WAV/MP3) in neuer Stil, ohne LM
+  --cover-strength F 1.0=quelle max, 0=frei (nur cover)
+  --noise-strength F 0..1 Startnähe zur Quelle (nur cover)
+  --repaint SRC      Region neu generieren (mit --from/--to), ohne LM
+  --from S --to S    Sekunden-Grenzen für repaint
+  --ref AUDIO        Timbre-Referenz (jeder Modus)
+
+Weitere Parameter via config/gaf.json:
+  music.keyscale/timesignature/vocal_language, music.lm_temperature/lm_cfg_scale/
+  lm_top_p/lm_top_k, music.use_cot_caption (false = Prompt wörtlich ans DiT),
+  music.solver (euler|sde|dpm3m|stork4), music.peak_clip (Loudness dB),
+  music.vae_chunk (VAE-Kachelgröße, VRAM-Hebel bei langen Tracks),
+  sfx.steps/sfx.duration/sfx.cfg/sfx.sway,
+  ffmpeg.enabled/ffmpeg.target_format/ffmpeg.target_rate
 
 Beispiele:
-  gaf music "aggressive metal racing track, fast tempo, driving drums"
+  gaf music "aggressive metal racing track, fast tempo" --bpm 160 --duration 64
+  gaf music "jazz piano cover" --cover output/music/song.wav --cover-strength 0.8
+  gaf music "fix intro" --repaint song.wav --from 0 --to 8
   gaf sfx "kart engine revving, high pitch"
-  gaf sfx "car tire drifting on asphalt, screech"
-  gaf sfx "heavy rain on pavement"
 
 Hinweise:
   - Ausgabe: WAV, lesbare Dateinamen, Metadaten-Sidecar (.meta.json) mit Prompt+Seed.
   - Bestehende Dateien werden nie überschrieben (Kollision → -2, -3, …).
   - Keine parallele GPU-Generierung: gaf wartet, bis die GPU frei ist.
   - Dasheng liefert 16 kHz Mono; FFmpeg resamplet optional auf 48 kHz.
+  - lego/extract/complete (Stem-Modes) brauchen das Base-Modell — mit Turbo nicht verfügbar.
 EOF
 }
 
