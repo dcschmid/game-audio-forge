@@ -95,7 +95,7 @@ run_case kart-engine sfx "go-kart engine revving, small piston engine, high pitc
 run_case rain sfx "heavy rain falling on pavement, steady rainfall"
 
 echo "════════════════════════════════"
-echo "BESTANDEN: $pass/$total  (fehlgeschlagen: $fail)"
+echo "PASSED: $pass/$total  (failed: $fail)"
 echo "$results" | jq . > "$RUNDIR/report.json"
 echo "Report: $RUNDIR/report.json"
 (( fail == 0 ))

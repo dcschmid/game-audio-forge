@@ -345,12 +345,13 @@ cmd_sfx() {
 
   # backend: sa3 (default, MIT runtime + Community weights, 44.1 kHz stereo)
   #          dasheng (legacy, Apache weights, 16 kHz mono, runtime unlicensed)
-  local backend steps duration cfg device encoding
+  local backend steps duration cfg device encoding seed
   backend="$(cfg sfx.backend sa3)"
   steps="$(cfg sfx.steps 8)"
   duration="$(cfg sfx.duration 5)"
   cfg="$(cfg sfx.cfg 5.0)"
   device="$(cfg sfx.device CUDA0)"
+  seed="$(date +%s%N | cut -c1-10)"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -358,6 +359,7 @@ cmd_sfx() {
       --duration)  duration="${2:-$duration}"; shift 2 ;;
       --steps)     steps="${2:-$steps}"; shift 2 ;;
       --cfg)       cfg="${2:-$cfg}"; shift 2 ;;
+      --seed)      seed="${2:-$seed}"; shift 2 ;;
       *) die "gaf sfx: unknown option: $1" ;;
     esac
   done
@@ -381,9 +383,6 @@ cmd_sfx() {
     while gpu_busy; do sleep 5; done
     log "GPU free."
   fi
-
-  local seed
-  seed="$(date +%s%N | cut -c1-10)"
 
   local ts slug outdir
   ts="$(date +%Y%m%d-%H%M%S)"
