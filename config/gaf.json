@@ -1,6 +1,4 @@
 {
-  "tools_root": "~/dev/github/tools",
-  "output_root": "~/dev/github/game-audio-forge/output",
   "music": {
     "repo": "acestep.cpp",
     "lm_model": "acestep-5Hz-lm-0.6B-Q8_0.gguf",

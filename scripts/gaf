@@ -20,6 +20,11 @@ set -euo pipefail
 GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="$GAF_HOME/config/gaf.json"
 
+# build/runtime env (CUDA, mamba, generator lib dirs) — die binaries
+#tragen alte absolute RPATHs, daher LD_LIBRARY_PATH aus gaf-env nötig.
+# shellcheck disable=SC1091
+source "$GAF_HOME/scripts/gaf-env"
+
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "gaf: configuration not found: $CONFIG_FILE" >&2
   exit 1
@@ -36,7 +41,7 @@ cfg() {
   printf '%s' "$v"
 }
 
-TOOLS_ROOT="$(cfg tools_root "$HOME/dev/github/tools")"
+TOOLS_ROOT="$(cfg tools_root "$GAF_HOME/tools")"
 OUTPUT_ROOT="$(cfg output_root "$GAF_HOME/output")"
 
 MUSIC_REPO="$TOOLS_ROOT/acestep.cpp"

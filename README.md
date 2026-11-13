@@ -48,14 +48,19 @@ game-audio-forge/
 ├── presets/
 │   ├── music/                # music presets (prompt + parameters)
 │   └── sfx/                  # sound-effect presets
-└── docs/
-    ├── SETUP.md              # build guide (Fedora 44, CUDA, sm_120a)
-    ├── PROMPTING.md          # what actually moves the model
-    └── LICENSES.md           # runtime, weights, third-party audit
+├── docs/
+│   ├── SETUP.md              # build guide (Fedora 44, CUDA, sm_120a)
+│   ├── PROMPTING.md          # what actually moves the model
+│   └── LICENSES.md           # runtime, weights, third-party audit
+│
+│   # gitignored, created by scripts/setup.sh:
+├── tools/                    # generator checkouts (acestep.cpp, sa3.cpp, …)
+│                             # + CUDA toolkit + build dirs
+└── bin/                      # micromamba binary
 ```
 
-Generators and model weights live **outside** the repository
-(`~/dev/github/tools/` by default). No weights, no audio in Git — ever.
+Generators and model weights live in `tools/` inside the repo folder but are
+**gitignored** (same for `bin/micromamba`). No weights, no audio in Git — ever.
 
 ## Getting started
 

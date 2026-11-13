@@ -5,7 +5,7 @@
 # no sudo needed. requires: git, curl, cmake, ninja/make, gcc, nvidia driver.
 #
 # steps (all idempotent):
-#   1. micromamba (user-space, stabil in ~/.local/bin)
+#   1. micromamba (user-space, stabil in <repo>/bin)
 #   2. conda-env "gaf": gcc/g++ 13 + sentencepiece
 #   3. CUDA Toolkit 12.8 (Runfile → user-space, via scripts/setup-cuda.sh)
 #   4. clone acestep.cpp + sa3.cpp + audiogen.cpp + CUDA build
@@ -14,8 +14,8 @@
 set -uo pipefail
 
 GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
-MAMBA="$HOME/.local/bin/micromamba"
+TOOLS="${GAF_TOOLS:-$GAF_HOME/tools}"
+MAMBA="$GAF_HOME/bin/micromamba"
 MAMBA_ROOT="$HOME/.mamba"
 CUDA_DIR="$TOOLS/cuda/cuda-12.8"
 ACE="$TOOLS/acestep.cpp"
@@ -31,10 +31,10 @@ for t in git curl cmake g++ make nvidia-smi jq; do
 done
 nvidia-smi -L >/dev/null 2>&1 || die "kein NVIDIA-Treiber (nvidia-smi)"
 
-# --- 1) micromamba (persistent) ----------------------------------------------
-mkdir -p "$HOME/.local/bin" "$MAMBA_ROOT"
+# --- 1) micromamba (persistent, repo-lokal) ----------------------------------
+mkdir -p "$GAF_HOME/bin" "$MAMBA_ROOT"
 if [[ ! -x "$MAMBA" ]]; then
-  step "micromamba → ~/.local/bin"
+  step "micromamba → bin/"
   curl -sL -o "$MAMBA" \
     "https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64" \
     && chmod +x "$MAMBA" || die "micromamba-Download fehlgeschlagen"

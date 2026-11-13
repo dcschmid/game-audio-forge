@@ -36,7 +36,7 @@ Workaround: extract the payload and merge the components by hand
 (`scripts/setup-cuda.sh`):
 
 ```bash
-cd ~/dev/github/tools/cuda
+cd ~/dev/github/game-audio-forge/tools/cuda
 curl -sL -o cuda_12.8.1_linux.run \
   https://developer.download.nvidia.com/compute/cuda/12.8.1/local_installers/cuda_12.8.1_570.124.06_linux.run
 env -u DISPLAY -u WAYLAND_DISPLAY TERM=dumb \
@@ -44,7 +44,7 @@ env -u DISPLAY -u WAYLAND_DISPLAY TERM=dumb \
 # merge components into cuda-12.8/{bin,lib64,include,nvvm} → setup-cuda.sh
 ```
 
-Result: `~/dev/github/tools/cuda/cuda-12.8/{bin,lib64,include,nvvm}`.
+Result: `~/dev/github/game-audio-forge/tools/cuda/cuda-12.8/{bin,lib64,include,nvvm}`.
 
 > **Why 12.8 and not 13.x?** CUDA 13.x supports host compilers only up to
 > GCC 15. And 12.8 knows `sm_120a` (RTX 5070) but not `sm_121a` (added in
@@ -53,10 +53,10 @@ Result: `~/dev/github/tools/cuda/cuda-12.8/{bin,lib64,include,nvvm}`.
 ## 2. GCC 13 + sentencepiece (conda-forge, no sudo)
 
 ```bash
-curl -sL -o ~/.local/bin/micromamba \
+curl -sL -o ~/dev/github/game-audio-forge/bin/micromamba \
   https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64
-chmod +x ~/.local/bin/micromamba
-MAMBA_ROOT_PREFIX=$HOME/.mamba ~/.local/bin/micromamba create -y -n gaf \
+chmod +x ~/dev/github/game-audio-forge/bin/micromamba
+MAMBA_ROOT_PREFIX=$HOME/.mamba ~/dev/github/game-audio-forge/bin/micromamba create -y -n gaf \
   -c conda-forge "gcc=13" "gxx=13" sentencepiece
 ```
 
@@ -72,7 +72,7 @@ Sets `PATH` (nvcc + conda-gaf), `LD_LIBRARY_PATH`, `PKG_CONFIG_PATH` and
 ## 4. Build acestep.cpp (music)
 
 ```bash
-cd ~/dev/github/tools/acestep.cpp
+cd ~/dev/github/game-audio-forge/tools/acestep.cpp
 mkdir -p build && cd build
 cmake .. -DGGML_CUDA=ON \
   -DCMAKE_CUDA_COMPILER="$GAF_CUDA/bin/nvcc" \
@@ -86,7 +86,7 @@ Binaries: `build/{ace-lm,ace-synth,ace-server,ace-understand,neural-codec,mp3-co
 ## 5. Build sa3.cpp (SFX, default backend)
 
 ```bash
-cd ~/dev/github/tools/sa3.cpp
+cd ~/dev/github/game-audio-forge/tools/sa3.cpp
 cmake -B build-cuda -S . -DCMAKE_BUILD_TYPE=Release -DSA3_CUDA=ON \
   -DCMAKE_CUDA_COMPILER="$GAF_CUDA/bin/nvcc" \
   -DCMAKE_CUDA_ARCHITECTURES="120a-real"
@@ -101,7 +101,7 @@ link while every CLI binary builds — `gaf` only needs the CLI.
 Legacy backend (optional, `--backend dasheng`):
 
 ```bash
-cd ~/dev/github/tools/audiogen.cpp
+cd ~/dev/github/game-audio-forge/tools/audiogen.cpp
 cmake -B build-cuda -S . -DCMAKE_BUILD_TYPE=Release \
   -DDASHENG_AUDIOGEN_METAL=OFF -DDASHENG_AUDIOGEN_CUDA=ON \
   -DCMAKE_CUDA_COMPILER="$GAF_CUDA/bin/nvcc"
@@ -116,18 +116,18 @@ override needed.
 
 ```bash
 # music: ACE-Step 1.5 SFT DiT + 0.6B LM + text-encoder + VAE (Q8_0, ~6.5 GB)
-cd ~/dev/github/tools/acestep.cpp
+cd ~/dev/github/game-audio-forge/tools/acestep.cpp
 for f in vae-BF16.gguf Qwen3-Embedding-0.6B-Q8_0.gguf \
          acestep-5Hz-lm-0.6B-Q8_0.gguf acestep-v15-sft-Q8_0.gguf; do
   hf download --quiet Serveurperso/ACE-Step-1.5-GGUF "$f" --local-dir models
 done
 
 # SFX default: Stable Audio 3 small-sfx Q8 GGUF (~2.6 GB)
-cd ~/dev/github/tools/sa3.cpp
+cd ~/dev/github/game-audio-forge/tools/sa3.cpp
 ./models.sh --variant small-sfx --encoding q8_0
 
 # SFX legacy: Dasheng AudioGen Q4 (~2.8 GB)
-cd ~/dev/github/tools/audiogen.cpp
+cd ~/dev/github/game-audio-forge/tools/audiogen.cpp
 make download-models-q4
 ```
 

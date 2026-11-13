@@ -21,7 +21,9 @@ models/
 *.onnx
 *.model
 
-# --- Build-Artefakte der externen Generatoren (liegen in ~/dev/github/tools) ---
+# --- Build-Artefakte der externen Generatoren (liegen in tools/ im Repo) ---
+tools/
+bin/
 build/
 build-*/
 cmake-build-*/

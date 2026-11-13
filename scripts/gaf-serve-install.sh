@@ -13,7 +13,7 @@ GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="$HOME/.config/systemd/user"
 UNIT="$UNIT_DIR/gaf-audio-ui.service"
 CONF="$GAF_HOME/config/gaf.json"
-TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
+TOOLS="${GAF_TOOLS:-$GAF_HOME/tools}"
 ENVF="$GAF_HOME/scripts/gaf-env"
 
 remove() {

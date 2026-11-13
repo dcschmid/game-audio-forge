@@ -5,7 +5,7 @@
 #   source ~/dev/github/game-audio-forge/scripts/gaf-env
 #
 # Stellt bereit:
-#   - CUDA 12.8 Toolkit (user-space, ~/dev/github/tools/cuda/cuda-12.8)
+#   - CUDA 12.8 Toolkit (user-space, <repo>/tools/cuda/cuda-12.8)
 #   - GCC 13 (conda-forge, via micromamba) — nvcc braucht Host-Compiler <=15
 #   - sentencepiece (conda-forge) — for audiogen.cpp
 #
@@ -14,10 +14,12 @@
 # from conda-forge, sudo-free.
 set -o allexport
 
-GAF_TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
+# repo root (works when sourced: BASH_SOURCE, not $0)
+GAF_ENV_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+GAF_TOOLS="${GAF_TOOLS:-$(dirname "$GAF_ENV_SELF_DIR")/tools}"
 GAF_CUDA="$GAF_TOOLS/cuda/cuda-12.8"
 GAF_MAMBA_ROOT="${GAF_MAMBA_ROOT:-$HOME/.mamba}"
-GAF_MICROMAMBA="${GAF_MICROMAMBA:-$HOME/.local/bin/micromamba}"
+GAF_MICROMAMBA="${GAF_MICROMAMBA:-$(dirname "$GAF_ENV_SELF_DIR")/bin/micromamba}"
 GAF_ENV_NAME="${GAF_ENV_NAME:-gaf}"
 
 # Fallback: micromamba woanders suchen
@@ -31,7 +33,11 @@ fi
 
 export MAMBA_ROOT_PREFIX="$GAF_MAMBA_ROOT"
 export PATH="$GAF_CUDA/bin:$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/bin:$PATH"
-export LD_LIBRARY_PATH="$GAF_CUDA/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# generator build-dirs on LD_LIBRARY_PATH: die binaries haben ihre
+# build-time RPATH (alte absoluten pfade) einkompiliert — LD_LIBRARY_PATH
+# gewinnt und macht den stack relocatable (solange nicht neu gebaut wird).
+GAF_LIBDIRS="$GAF_TOOLS/acestep.cpp/build:$GAF_TOOLS/sa3.cpp/build-cuda:$GAF_TOOLS/sa3.cpp/build-cuda/ggml/src:$GAF_TOOLS/sa3.cpp/build-cuda/ggml/src/ggml-cuda:$GAF_TOOLS/audiogen.cpp/build-cuda:$GAF_TOOLS/audiogen.cpp/build-cuda/third_party/ggml/src:$GAF_TOOLS/audiogen.cpp/build-cuda/third_party/ggml/src/ggml-cuda"
+export LD_LIBRARY_PATH="$GAF_CUDA/lib64:$GAF_LIBDIRS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PKG_CONFIG_PATH="$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 # nvcc soll GCC 13 als Host-Compiler nehmen
 export NVCC_CCBIN="$GAF_MAMBA_ROOT/envs/$GAF_ENV_NAME/bin/g++"

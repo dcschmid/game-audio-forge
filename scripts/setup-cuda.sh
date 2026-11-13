@@ -8,7 +8,8 @@
 # Ergebnis: $GAF_TOOLS/cuda/cuda-12.8/{bin,lib64,include,nvvm}
 set -euo pipefail
 
-GAF_TOOLS="${GAF_TOOLS:-$HOME/dev/github/tools}"
+GAF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GAF_TOOLS="${GAF_TOOLS:-$GAF_HOME/tools}"
 CUDA_DIR="$GAF_TOOLS/cuda"
 RUNFILE="$CUDA_DIR/cuda_12.8.1_linux.run"
 URL="https://developer.download.nvidia.com/compute/cuda/12.8.1/local_installers/cuda_12.8.1_570.124.06_linux.run"
